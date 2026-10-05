@@ -1,0 +1,471 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  discordId   String   @unique
+  username    String
+  discordName String?
+  avatar      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  packs           Int        @default(3)
+  packsRefilledAt DateTime   @default(now())
+  cards           UserCard[]
+  tags            Tag[]
+  importedCount   Int        @default(0)
+
+  settings            Json              @default("{}")
+  isPublic            Boolean           @default(false)
+  showcaseCardId      String?           @db.Uuid
+  featuredCardIds     String[]          @default([]) @db.Uuid
+  showcaseCard        Card?             @relation("Showcase", fields: [showcaseCardId], references: [id], onDelete: SetNull)
+  pulls               Pull[]
+  wikibits            Int               @default(500)
+  achievements        UserAchievement[]
+  messagesSent        Message[]         @relation("MessageSender")
+  messagesReceived    Message[]         @relation("MessageRecipient")
+  friendshipsSent     Friendship[]      @relation("FriendRequester")
+  friendshipsReceived Friendship[]      @relation("FriendAddressee")
+  guildMember         GuildMember?
+  wishlist            WishlistItem[]
+  guildWishes         GuildWish[]       @relation("WishOwner")
+  guildGifts          GuildWish[]       @relation("WishGiver")
+  guildEvents         GuildScoreEvent[]
+  auctionsSold        Auction[]         @relation("AuctionSeller")
+  auctionsLed         Auction[]         @relation("AuctionLeader")
+  bids                Bid[]
+  tradesSent          Trade[]           @relation("TradeProposer")
+  tradesReceived      Trade[]           @relation("TradeRecipient")
+  battleGames         BattleGame[]
+  staffRole           StaffRole?
+  bannedAt            DateTime?
+  banReason           String?
+  trustOverride       String?
+  devices             Device[]
+  abuseSignals        AbuseSignal[]
+  reportsMade         MessageReport[]   @relation("ReportReporter")
+  reportsReceived     MessageReport[]   @relation("ReportSender")
+}
+
+enum StaffRole {
+  MODERATOR
+  ADMIN
+}
+
+enum Rarity {
+  COMMON
+  UNCOMMON
+  RARE
+  SUPER_RARE
+  ULTRA_RARE
+  LEGENDARY
+}
+
+model Card {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  pageId      Int      @unique
+  title       String
+  description String?
+  extract     String
+  imageUrl    String?
+  url         String
+  views       Int
+  length      Int
+  languages   Int
+  rarity      Rarity
+  attack      Int
+  defense     Int
+  createdAt   DateTime @default(now())
+
+  owners      UserCard[]
+  showcasedBy User[]         @relation("Showcase")
+  pulls       Pull[]
+  tradeItems  TradeItem[]
+  auctions    Auction[]
+  wishes      GuildWish[]
+  wishedBy    WishlistItem[]
+}
+
+model UserCard {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  cardId    String   @db.Uuid
+  quantity  Int      @default(1)
+  imported  Boolean  @default(false)
+  favorite  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card  @relation(fields: [cardId], references: [id])
+  tags Tag[]
+
+  @@unique([userId, cardId])
+}
+
+model Tag {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userCards UserCard[]
+
+  @@unique([userId, name])
+}
+
+model Pull {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  cardId    String   @db.Uuid
+  openingId String   @db.Uuid
+  rarity    Rarity
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+enum TradeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+enum TradeSide {
+  OFFER
+  REQUEST
+}
+
+model Trade {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  proposerId  String      @db.Uuid
+  recipientId String      @db.Uuid
+  status      TradeStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  expiresAt   DateTime
+  respondedAt DateTime?
+
+  proposer  User        @relation("TradeProposer", fields: [proposerId], references: [id], onDelete: Cascade)
+  recipient User        @relation("TradeRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  items     TradeItem[]
+
+  @@index([recipientId, status])
+  @@index([proposerId, status])
+}
+
+model TradeItem {
+  id       String    @id @default(uuid(7)) @db.Uuid
+  tradeId  String    @db.Uuid
+  cardId   String    @db.Uuid
+  quantity Int
+  side     TradeSide
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([tradeId, cardId])
+}
+
+enum AuctionStatus {
+  ACTIVE
+  SOLD
+  UNSOLD
+  CANCELLED
+}
+
+model Auction {
+  id         String        @id @default(uuid(7)) @db.Uuid
+  sellerId   String        @db.Uuid
+  cardId     String        @db.Uuid
+  startPrice Int
+  currentBid Int?
+  leaderId   String?       @db.Uuid
+  bidCount   Int           @default(0)
+  endsAt     DateTime
+  status     AuctionStatus @default(ACTIVE)
+  createdAt  DateTime      @default(now())
+  settledAt  DateTime?
+
+  seller User  @relation("AuctionSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  leader User? @relation("AuctionLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  card   Card  @relation(fields: [cardId], references: [id])
+  bids   Bid[]
+
+  @@index([status, endsAt])
+  @@index([sellerId, status])
+  @@index([leaderId, status])
+  @@index([status, settledAt])
+}
+
+model Bid {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  auctionId String   @db.Uuid
+  bidderId  String   @db.Uuid
+  amount    Int
+  createdAt DateTime @default(now())
+
+  auction Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidder  User    @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+
+  @@index([auctionId, createdAt(sort: Desc)])
+  @@index([bidderId])
+}
+
+enum GuildRole {
+  OWNER
+  MEMBER
+}
+
+enum WishStatus {
+  OPEN
+  FULFILLED
+  CANCELLED
+}
+
+enum ScoreKind {
+  INFLUENCE
+  AUCTION
+}
+
+model Guild {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  members GuildMember[]
+  wishes  GuildWish[]
+  events  GuildScoreEvent[]
+  results GuildWeekResult[]
+}
+
+model GuildMember {
+  id       String    @id @default(uuid(7)) @db.Uuid
+  guildId  String    @db.Uuid
+  userId   String    @unique @db.Uuid
+  role     GuildRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+  ipTotal  Int       @default(0)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+}
+
+model GuildWish {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  guildId     String     @db.Uuid
+  userId      String     @db.Uuid
+  cardId      String     @db.Uuid
+  status      WishStatus @default(OPEN)
+  createdAt   DateTime   @default(now())
+  fulfilledAt DateTime?
+  giverId     String?    @db.Uuid
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user  User  @relation("WishOwner", fields: [userId], references: [id], onDelete: Cascade)
+  giver User? @relation("WishGiver", fields: [giverId], references: [id], onDelete: SetNull)
+  card  Card  @relation(fields: [cardId], references: [id])
+
+  @@index([guildId, status])
+  @@index([userId, status])
+  @@index([userId, fulfilledAt])
+}
+
+model WishlistItem {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  cardId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cardId])
+  @@index([cardId])
+}
+
+model GuildScoreEvent {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  guildId   String    @db.Uuid
+  userId    String?   @db.Uuid
+  kind      ScoreKind
+  points    Int
+  weekStart DateTime
+  createdAt DateTime  @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([weekStart, guildId])
+  @@index([guildId, userId, weekStart])
+}
+
+model GuildWeekSettled {
+  weekStart DateTime @id
+  settledAt DateTime @default(now())
+}
+
+model GuildWeekResult {
+  weekStart DateTime
+  guildId   String   @db.Uuid
+  rank      Int
+  points    Int
+  reward    Int
+  guildName String
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@id([weekStart, guildId])
+  @@index([weekStart, rank])
+}
+
+model WikiArticle {
+  pageId Int    @id
+  title  String
+  views  Int
+  rarity Rarity
+
+  @@index([rarity, views(sort: Desc)])
+  @@index([views(sort: Desc)])
+  @@index([title])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+model Friendship {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  requesterId String           @db.Uuid
+  addresseeId String           @db.Uuid
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  respondedAt DateTime?
+
+  requester User @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@index([requesterId, status])
+}
+
+model Message {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  senderId    String    @db.Uuid
+  recipientId String    @db.Uuid
+  body        String
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+
+  sender    User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt])
+  @@index([senderId, recipientId, createdAt(sort: Desc)])
+  @@index([recipientId, senderId, createdAt(sort: Desc)])
+}
+
+model UserAchievement {
+  userId     String    @db.Uuid
+  key        String
+  unlockedAt DateTime  @default(now())
+  claimedAt  DateTime?
+  seen       Boolean   @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, key])
+}
+
+model BattleGame {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  userId        String   @db.Uuid
+  startArticle  String
+  targetArticle String
+  path          Json
+  clicks        Int
+  timeSeconds   Float
+  won           Boolean
+  mode          String   @default("solo")
+  playedAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, playedAt(sort: Desc)])
+}
+
+model Device {
+  deviceId    String
+  userId      String   @db.Uuid
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([deviceId, userId])
+  @@index([deviceId])
+}
+
+model AbuseSignal {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  type      String
+  weight    Int
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model StaffAction {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  actorId    String   @db.Uuid
+  actorName  String
+  action     String
+  targetId   String?  @db.Uuid
+  targetName String?
+  detail     Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([targetId, createdAt(sort: Desc)])
+}
+
+model MessageReport {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  messageId  String?   @db.Uuid
+  reporterId String    @db.Uuid
+  senderId   String    @db.Uuid
+  body       String
+  context    Json
+  status     String    @default("OPEN")
+  createdAt  DateTime  @default(now())
+  handledBy  String?
+  handledAt  DateTime?
+
+  reporter User @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  sender   User @relation("ReportSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, reporterId])
+  @@index([status, createdAt(sort: Desc)])
+}

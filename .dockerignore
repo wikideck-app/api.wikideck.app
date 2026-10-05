@@ -1,0 +1,11 @@
+**/node_modules
+**/.next
+**/generated
+**/.env
+**/.env.*
+!**/.env.example
+**/*.tsbuildinfo
+**/next-env.d.ts
+.git
+paquet.webp
+apps/web/public/dos_carte.png

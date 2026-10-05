@@ -1,0 +1,40 @@
+{
+  "name": "@wikideck/api",
+  "version": "1.0.0",
+  "author": "Jessy DAVID - https://jessy-david.dev",
+  "description": "API de Wikideck (api.wikideck.fr)",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "eslint",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate",
+    "catalog:import": "tsx scripts/import-catalog.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@wikideck/shared": "workspace:*",
+    "dotenv": "^18.0.5",
+    "ioredis": "^6.0.0",
+    "next": "16.3.8",
+    "pg": "^8.23.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "prisma": "^7.10.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  }
+}
