@@ -9,7 +9,5 @@ export const toCardDto = (c: Card): CardDto => ({
   imageUrl: c.imageUrl,
   url: c.url,
   rarity: c.rarity,
-  attack: c.attack,
-  defense: c.defense,
   views: c.views,
 });

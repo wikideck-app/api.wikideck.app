@@ -8,7 +8,6 @@ export async function computeStats(userId: string): Promise<Stats> {
   const [
     user,
     byRarity,
-    maxes,
     copies,
     openings,
     trades,
@@ -30,9 +29,6 @@ export async function computeStats(userId: string): Promise<Stats> {
       SELECT c.rarity::text AS rarity, count(*) AS n
       FROM "UserCard" uc JOIN "Card" c ON c.id = uc."cardId"
       WHERE uc."userId" = ${userId}::uuid GROUP BY c.rarity`,
-    prisma.$queryRaw<{ atk: number | null; def: number | null }[]>`
-      SELECT max(c.attack) AS atk, max(c.defense) AS def
-      FROM "UserCard" uc JOIN "Card" c ON c.id = uc."cardId" WHERE uc."userId" = ${userId}::uuid`,
     prisma.userCard.aggregate({ where: { userId }, _max: { quantity: true } }),
     prisma.$queryRaw<{ n: bigint }[]>`
       SELECT count(DISTINCT "openingId") AS n FROM "Pull" WHERE "userId" = ${userId}::uuid`,
@@ -63,8 +59,6 @@ export async function computeStats(userId: string): Promise<Stats> {
     superRare: rarity.get("SUPER_RARE") ?? 0,
     ultraRare: rarity.get("ULTRA_RARE") ?? 0,
     legendary: rarity.get("LEGENDARY") ?? 0,
-    attackMax: maxes[0]?.atk ?? 0,
-    defenseMax: maxes[0]?.def ?? 0,
     packs: Number(openings[0]?.n ?? 0),
     maxCopies: copies._max.quantity ?? 0,
     duplicates: (copies._max.quantity ?? 0) >= 2 ? 1 : 0,

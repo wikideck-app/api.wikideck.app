@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Card" ALTER COLUMN "attack" SET DEFAULT 0,
+ALTER COLUMN "defense" SET DEFAULT 0;

@@ -81,8 +81,9 @@ model Card {
   length      Int
   languages   Int
   rarity      Rarity
-  attack      Int
-  defense     Int
+  // plus utilisées (retirées du jeu), gardées en base avec une valeur par défaut
+  attack      Int      @default(0)
+  defense     Int      @default(0)
   createdAt   DateTime @default(now())
 
   owners      UserCard[]

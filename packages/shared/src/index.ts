@@ -64,8 +64,6 @@ export type CardDto = {
   imageUrl: string | null;
   url: string;
   rarity: Rarity;
-  attack: number;
-  defense: number;
   views: number;
 };
 
@@ -699,8 +697,6 @@ export type AchievementStat =
   | "superRare"
   | "ultraRare"
   | "legendary"
-  | "attackMax"
-  | "defenseMax"
   | "packs"
   | "maxCopies"
   | "duplicates"
@@ -888,26 +884,6 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     "legendary",
     10,
     300,
-  ),
-  a(
-    "atk-max",
-    "Raretés",
-    "ATK maximum",
-    "Obtenir une carte avec 9 999 d'attaque",
-    "swords",
-    "attackMax",
-    9999,
-    75,
-  ),
-  a(
-    "def-max",
-    "Raretés",
-    "DEF maximum",
-    "Obtenir une carte avec 9 999 de défense",
-    "shield",
-    "defenseMax",
-    9999,
-    75,
   ),
 
   a(

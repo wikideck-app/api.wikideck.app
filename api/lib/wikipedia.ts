@@ -15,8 +15,6 @@ export type WikiCard = {
   length: number;
   languages: number;
   rarity: Rarity;
-  attack: number;
-  defense: number;
 };
 
 export class WikipediaUnavailableError extends Error {
@@ -24,8 +22,6 @@ export class WikipediaUnavailableError extends Error {
     super(`Wikipédia indisponible : ${detail}`);
   }
 }
-
-const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, Math.round(n)));
 
 export function rarityFromViews(views: number): Rarity {
   return RARITIES.findLast((r) => views >= r.minViews)!.value;
@@ -149,8 +145,6 @@ function toCard(page: Page, views: number, languages: number): WikiCard {
     length,
     languages,
     rarity: rarityFromViews(views),
-    attack: clamp(length / 10, 100, 9999),
-    defense: clamp(languages * 60 + 100, 100, 9999),
   };
 }
 
