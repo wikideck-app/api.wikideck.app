@@ -1,5 +1,5 @@
 import { hostname } from "node:os";
-import type { HealthResponse } from "@wikideck/shared";
+import { API_VERSION, type HealthResponse } from "@wikideck/shared";
 import { poolSize } from "@/lib/card-pool";
 import { MAX_CONCURRENT_OPENS, activeUsers, openingsInFlight } from "@/lib/load";
 
@@ -14,6 +14,7 @@ export async function GET() {
   return Response.json({
     status: "ok",
     service: "wikideck-api",
+    version: API_VERSION,
     instance: INSTANCE,
     load: {
       activeUsers: users,

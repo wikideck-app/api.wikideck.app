@@ -1,6 +1,7 @@
 export type HealthResponse = {
   status: "ok";
   service: string;
+  version?: number;
   instance?: string;
   load?: {
     activeUsers: number | null;
@@ -51,6 +52,7 @@ export type Rarity = (typeof RARITIES)[number]["value"];
 
 export const PACK_MAX = 10;
 export const PACK_SIZE = 5;
+export const API_VERSION = 1;
 // 0,05 % par paquet
 export const GODPACK_RATE = 0.0005;
 // un paquet toutes les 10 minutes
