@@ -1288,7 +1288,8 @@ export type StaffUserAction =
   | { action: "clearSignals" }
   | { action: "wikibits"; amount: number; reason: string }
   | { action: "packs"; count: number }
-  | { action: "setRole"; role: StaffRole | null };
+  | { action: "setRole"; role: StaffRole | null }
+  | { action: "delete"; confirm: string; reason: string };
 
 export type StaffAuctionRow = {
   id: string;
@@ -1378,3 +1379,14 @@ export type WishlistCard = CardDto & {
 };
 
 export type WishlistResponse = { cards: WishlistCard[]; max: number };
+
+export type DeletedAccountRow = {
+  id: string;
+  username: string;
+  at: string;
+  /** Membre du staff qui a supprimé le compte ; null si le joueur l'a supprimé lui-même */
+  by: string | null;
+  reason: string | null;
+  /** Seulement pour les suppressions par le staff : un joueur qui efface son compte n'en laisse pas */
+  discordId: string | null;
+};

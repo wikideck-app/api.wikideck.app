@@ -11,6 +11,7 @@ import {
 import { toCardDto } from "@/lib/cards";
 import { checkAchievements } from "@/lib/achievements";
 import { leaveGuild } from "@/lib/guild";
+import { logStaff } from "@/lib/staff";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { SESSION_COOKIE, cookieOptions, currentUser, destroySession } from "@/lib/session";
@@ -118,6 +119,8 @@ export const DELETE = withRateLimit("me-delete", { limit: 3, windowSec: 60 }, as
   });
   if (open > 0) return Response.json({ error: "active_auctions" }, { status: 409 });
 
+  // trace minimale pour le staff : pseudo et date, ni identifiant Discord ni motif
+  await logStaff(user, "self_delete", user);
   await prisma.$transaction(async (tx) => {
     await leaveGuild(tx, user.id);
     await tx.user.delete({ where: { id: user.id } });

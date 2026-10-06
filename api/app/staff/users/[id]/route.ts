@@ -4,6 +4,7 @@ import {
   type StaffRole,
   type StaffUserAction,
 } from "@wikideck/shared";
+import { leaveGuild } from "@/lib/guild";
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -183,6 +184,25 @@ export const POST = withRateLimit<Ctx>(
         await prisma.user.update({ where: { id }, data: { staffRole: next } });
         await logStaff(actor, "set_role", target, { from: target.staffRole, to: next });
         break;
+      }
+      case "delete": {
+        if (!atLeast(role, "ADMIN")) return bad("forbidden", 403);
+        if (!mayModerate || isEnvAdmin(target)) return bad("forbidden", 403);
+        const reason = reasonOf(body.reason, true);
+        if (!reason) return bad("invalid_reason");
+        if (body.confirm !== target.username) return bad("confirmation_required");
+        // enchères en cours : des cartes et des wikibits d'autres joueurs y sont bloqués
+        const open = await prisma.auction.count({
+          where: { status: "ACTIVE", OR: [{ sellerId: id }, { leaderId: id }] },
+        });
+        if (open > 0) return bad("target_active_auctions", 409);
+        await logStaff(actor, "delete_user", target, { reason, discordId: target.discordId });
+        await prisma.$transaction(async (tx) => {
+          await leaveGuild(tx, id);
+          await tx.user.delete({ where: { id } });
+        });
+        await refreshStaffAlerts();
+        return Response.json({ deleted: true });
       }
       default:
         return bad("invalid");
