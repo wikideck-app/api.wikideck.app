@@ -18,6 +18,8 @@ import { acquireOpenSlot, releaseOpenSlot } from "@/lib/load";
 import { godpackEntries, legendaryEntry } from "@/lib/catalog";
 import { cardsFromIds, drawRandomCards, type WikiCard } from "@/lib/wikipedia";
 import { randomInt, randomUUID } from "node:crypto";
+import { existsSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { withRateLimit } from "@/lib/rate-limit";
 import { readJson } from "@/lib/tags";
 
@@ -85,7 +87,25 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
         }
       }
     }
-    const mythicRate = boosted ? BOOST_MYTHIC_RATE : MYTHIC_RATE;
+    // dev uniquement : un fichier .dev-force-pack à la racine de l'API force, une seule fois,
+    // une légendaire et une mythique dans le prochain paquet (pour tester les animations)
+    const forcedMythic = new Set<number>();
+    const forceFile = join(process.cwd(), ".dev-force-pack");
+    if (process.env.NODE_ENV !== "production" && !godpack && existsSync(forceFile)) {
+      unlinkSync(forceFile);
+      const picks: WikiCard[] = [];
+      for (let i = 0; i < 20 && picks.length < 2; i++) {
+        const entry = await legendaryEntry();
+        const [card] = entry ? await cardsFromIds([entry]) : [];
+        if (card && !picks.some((c) => c.pageId === card.pageId)) picks.push(card);
+      }
+      if (picks.length === 2) {
+        drawn.sort((a, b) => a.views - b.views);
+        drawn.splice(0, 2, ...picks);
+        forcedMythic.add(picks[0].pageId);
+      }
+    }
+    const mythicRate = forcedMythic.size ? 0 : boosted ? BOOST_MYTHIC_RATE : MYTHIC_RATE;
     drawn.sort((a, b) => a.views - b.views);
 
     const next = {
@@ -111,7 +131,10 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
           create: wiki,
         });
         // une légendaire sur 1/MYTHIC_RATE sort en version mythique
-        if (card.rarity === "LEGENDARY" && randomInt(1_000_000) < mythicRate * 1_000_000) {
+        if (
+          card.rarity === "LEGENDARY" &&
+          (forcedMythic.has(wiki.pageId) || randomInt(1_000_000) < mythicRate * 1_000_000)
+        ) {
           card = await tx.card.upsert({
             where: { pageId: -card.pageId },
             update: {},
