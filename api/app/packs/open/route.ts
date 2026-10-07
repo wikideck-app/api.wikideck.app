@@ -2,7 +2,7 @@ import type { OpenPackResponse } from "@wikideck/shared";
 import { toCardDto } from "@/lib/cards";
 import { checkAchievements } from "@/lib/achievements";
 import { toTagDto } from "@/lib/tags";
-import { GODPACK_RATE, PACK_MAX, PACK_SIZE } from "@wikideck/shared";
+import { GODPACK_RATE, MYTHIC_RATE, PACK_MAX, PACK_SIZE } from "@wikideck/shared";
 import { refill, status } from "@/lib/packs";
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
@@ -69,11 +69,31 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
       await tx.user.update({ where: { id: user.id }, data: next });
       const result = [];
       for (const wiki of drawn) {
-        const card = await tx.card.upsert({
+        let card = await tx.card.upsert({
           where: { pageId: wiki.pageId },
           update: {},
           create: wiki,
         });
+        // une légendaire sur 1/MYTHIC_RATE sort en version mythique
+        if (card.rarity === "LEGENDARY" && randomInt(1_000_000) < MYTHIC_RATE * 1_000_000) {
+          card = await tx.card.upsert({
+            where: { pageId: -card.pageId },
+            update: {},
+            create: {
+              pageId: -card.pageId,
+              title: card.title,
+              description: card.description,
+              extract: card.extract,
+              imageUrl: card.imageUrl,
+              url: card.url,
+              views: card.views,
+              length: card.length,
+              languages: card.languages,
+              rarity: "MYTHIC",
+              baseCardId: card.id,
+            },
+          });
+        }
         const owned = await tx.userCard.upsert({
           where: { userId_cardId: { userId: user.id, cardId: card.id } },
           update: { quantity: { increment: 1 } },

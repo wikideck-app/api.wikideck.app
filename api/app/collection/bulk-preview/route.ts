@@ -1,7 +1,7 @@
 import {
   BULK_LIST_MAX,
   BULK_MAX_CARD_IDS,
-  RARITIES,
+  DROP_RARITIES,
   RECYCLE_VALUES,
   type BulkItem,
   type BulkPreviewResponse,
@@ -21,7 +21,7 @@ export const POST = withRateLimit(
     const body = await readJson(request);
     const maxViews = body?.maxViews;
     const ids = body?.cardIds;
-    const known: string[] = RARITIES.map((r) => r.value);
+    const known: string[] = DROP_RARITIES.map((r) => r.value);
     const wanted = body?.rarities;
     if (
       typeof maxViews !== "number" ||
@@ -39,7 +39,7 @@ export const POST = withRateLimit(
       maxViews,
       cardIds: ids as string[] | undefined,
     });
-    const rarities = RARITIES.map((r) => {
+    const rarities = DROP_RARITIES.map((r) => {
       const mine = candidates.filter((c) => c.rarity === r.value);
       const copies = mine.reduce((n, c) => n + c.quantity, 0);
       return {

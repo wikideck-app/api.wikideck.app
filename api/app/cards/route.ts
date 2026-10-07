@@ -1,9 +1,11 @@
 import {
   CATALOG_OWNERSHIP,
+  CATALOG_SEARCH_MIN,
   CATALOG_SORTS,
   COLLECTION_PAGE_SIZE,
   COLLECTION_SEARCH_MAX,
-  RARITIES,
+  DROP_RARITIES,
+  searchTokens,
   type CatalogCard,
   type CatalogResponse,
   type CatalogSort,
@@ -32,18 +34,20 @@ export const GET = withRateLimit("cards-catalog", { limit: 60, windowSec: 60 }, 
   const sort = CATALOG_SORTS.find((s) => s.value === params.get("sort"))?.value ?? "rarity_desc";
   const ownership = CATALOG_OWNERSHIP.find((o) => o.value === params.get("show"))?.value ?? "all";
   const query = (params.get("q") ?? "").trim().slice(0, COLLECTION_SEARCH_MAX);
-  const rarities = RARITIES.filter((r) =>
+  const rarities = DROP_RARITIES.filter((r) =>
     (params.get("rarity") ?? "").split(",").includes(r.code),
   ).map((r) => r.value);
 
   const counts = await rarityCounts();
   const catalog = [...counts.values()].reduce((a, b) => a + b, 0);
 
+  const searching = searchTokens(query, CATALOG_SEARCH_MIN).length > 0;
   const needsJoin = ownership !== "all";
   const where: Prisma.Sql[] = [];
   if (rarities.length) where.push(Prisma.sql`a.rarity = ANY(${rarities}::"Rarity"[])`);
-  if (query) {
-    const like = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
+  // chaque mot (3 lettres au moins) doit se trouver n'importe où dans le titre
+  for (const token of searchTokens(query, CATALOG_SEARCH_MIN)) {
+    const like = `%${token.replace(/[\\%_]/g, "\\$&")}%`;
     where.push(Prisma.sql`a.title ILIKE ${like}`);
   }
   if (ownership === "mine") where.push(Prisma.sql`uc."cardId" IS NOT NULL`);
@@ -60,7 +64,7 @@ export const GET = withRateLimit("cards-catalog", { limit: 60, windowSec: 60 }, 
     : Prisma.sql`FROM "WikiArticle" a`;
 
   let total: number;
-  if (!query && !needsJoin) {
+  if (!searching && !needsJoin) {
     total = rarities.length ? rarities.reduce((sum, r) => sum + (counts.get(r) ?? 0), 0) : catalog;
   } else {
     const [{ n }] = await prisma.$queryRaw<
@@ -135,7 +139,7 @@ export const GET = withRateLimit("cards-catalog", { limit: 60, windowSec: 60 }, 
     ownership,
     rarities,
     query,
-    counts: [...RARITIES]
+    counts: [...DROP_RARITIES]
       .reverse()
       .map((r) => ({ rarity: r.value, count: counts.get(r.value) ?? 0 })),
     catalog,

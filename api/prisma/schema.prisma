@@ -36,6 +36,7 @@ model User {
   friendshipsReceived Friendship[]      @relation("FriendAddressee")
   guildMember         GuildMember?
   wishlist            WishlistItem[]
+  albums              Album[]
   guildWishes         GuildWish[]       @relation("WishOwner")
   guildGifts          GuildWish[]       @relation("WishGiver")
   guildEvents         GuildScoreEvent[]
@@ -67,6 +68,7 @@ enum Rarity {
   SUPER_RARE
   ULTRA_RARE
   LEGENDARY
+  MYTHIC
 }
 
 model Card {
@@ -85,6 +87,10 @@ model Card {
   attack      Int      @default(0)
   defense     Int      @default(0)
   createdAt   DateTime @default(now())
+  // version mythique d'une carte légendaire (pageId négatif, car pageId est unique)
+  baseCardId  String?  @unique @db.Uuid
+  baseCard    Card?    @relation("Mythic", fields: [baseCardId], references: [id], onDelete: Restrict)
+  mythic      Card?    @relation("Mythic")
 
   owners      UserCard[]
   showcasedBy User[]         @relation("Showcase")
@@ -93,6 +99,7 @@ model Card {
   auctions    Auction[]
   wishes      GuildWish[]
   wishedBy    WishlistItem[]
+  albumCards  AlbumCard[]
 }
 
 model UserCard {
@@ -288,6 +295,31 @@ model GuildWish {
   @@index([userId, fulfilledAt])
 }
 
+model Album {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards AlbumCard[]
+
+  @@unique([userId, name])
+}
+
+model AlbumCard {
+  albumId String   @db.Uuid
+  cardId  String   @db.Uuid
+  addedAt DateTime @default(now())
+
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@id([albumId, cardId])
+  @@index([cardId])
+}
+
 model WishlistItem {
   id        String   @id @default(uuid(7)) @db.Uuid
   userId    String   @db.Uuid
@@ -345,6 +377,7 @@ model WikiArticle {
   @@index([rarity, views(sort: Desc)])
   @@index([views(sort: Desc)])
   @@index([title])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "WikiArticle_title_trgm_idx")
 }
 
 enum FriendshipStatus {

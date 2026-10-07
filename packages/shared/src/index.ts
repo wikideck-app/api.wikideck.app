@@ -46,9 +46,17 @@ export const RARITIES = [
   { value: "SUPER_RARE", code: "SR", label: "Super rare", minViews: 1_000 },
   { value: "ULTRA_RARE", code: "UR", label: "Ultra rare", minViews: 5_000 },
   { value: "LEGENDARY", code: "L", label: "Légendaire", minViews: 20_000 },
+  // variante d'une légendaire, tirée avec MYTHIC_RATE quand une légendaire sort d'un paquet
+  { value: "MYTHIC", code: "M", label: "Mythique", minViews: Infinity },
 ] as const;
 
 export type Rarity = (typeof RARITIES)[number]["value"];
+
+// les raretés du catalogue (la mythique n'est qu'une variante de légendaire)
+export const DROP_RARITIES = RARITIES.filter((r) => r.value !== "MYTHIC");
+
+// chance qu'une légendaire tirée soit mythique : 5 %
+export const MYTHIC_RATE = 0.05;
 
 export const PACK_MAX = 10;
 export const PACK_SIZE = 5;
@@ -125,6 +133,7 @@ export const COLLECTION_SORTS: { value: CollectionSort; label: string }[] = [
 
 export type CollectionCard = CardDto & {
   quantity: number;
+  inAlbum?: boolean;
   favorite?: boolean;
   tags: TagDto[];
   protectedReason?: string | null;
@@ -138,6 +147,7 @@ export const RECYCLE_VALUES: Record<Rarity, number> = {
   SUPER_RARE: 10,
   ULTRA_RARE: 15,
   LEGENDARY: 20,
+  MYTHIC: 50,
 };
 export const RECYCLE_MAX_LINES = 200;
 
@@ -249,6 +259,15 @@ export type CatalogResponse = {
 };
 
 export const COLLECTION_SEARCH_MAX = 100;
+export const CATALOG_SEARCH_MIN = 3;
+
+export function searchTokens(query: string, min = 1): string[] {
+  const words = query
+    .toLocaleLowerCase("fr-FR")
+    .split(/\s+/)
+    .filter((w) => w.length >= min);
+  return [...new Set(words)].slice(0, 6);
+}
 
 export const COLLECTION_PAGE_SIZE = 56;
 
@@ -548,6 +567,7 @@ export const GUILD_IP_POINTS: Record<Rarity, number> = {
   SUPER_RARE: 500,
   ULTRA_RARE: 1_000,
   LEGENDARY: 2_000,
+  MYTHIC: 5_000,
 };
 
 export const GUILD_REWARDS = [
@@ -1392,3 +1412,43 @@ export type DeletedAccountRow = {
   /** Seulement pour les suppressions par le staff : un joueur qui efface son compte n'en laisse pas */
   discordId: string | null;
 };
+
+export const ALBUM_NAME_MAX = 40;
+export const ALBUM_MAX_PER_USER = 20;
+export const ALBUM_CARDS_MAX = 500;
+export const ALBUM_ADD_BATCH = 100;
+export const ALBUM_HIGHLIGHTS = 3;
+
+export type AlbumSummary = {
+  id: string;
+  name: string;
+  cards: number;
+  top: CardDto[];
+  hasCard?: boolean;
+  updatedAt: string;
+};
+
+export type AlbumsResponse = { albums: AlbumSummary[]; max: number };
+
+export type AlbumResponse = {
+  album: { id: string; name: string; createdAt: string };
+  count: number;
+  highlights: CollectionCard[];
+  cards: CollectionCard[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  rarities: Rarity[];
+  query: string;
+  counts: { rarity: Rarity; count: number }[];
+};
+
+export type AlbumCandidatesResponse = {
+  cards: CollectionCard[];
+  total: number;
+  page: number;
+  totalPages: number;
+  room: number;
+};
+

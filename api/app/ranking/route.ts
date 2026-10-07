@@ -44,7 +44,7 @@ export const GET = withRateLimit("ranking", { limit: 30, windowSec: 60 }, async 
             SELECT u."id", u."discordId", u."username", u."avatar",
               (CASE WHEN ${board}::text = 'points' THEN SUM(CASE c."rarity"::text
                 WHEN 'COMMON' THEN 1 WHEN 'UNCOMMON' THEN 2 WHEN 'RARE' THEN 5
-                WHEN 'SUPER_RARE' THEN 10 WHEN 'ULTRA_RARE' THEN 15 ELSE 20 END)
+                WHEN 'SUPER_RARE' THEN 10 WHEN 'ULTRA_RARE' THEN 15 WHEN 'MYTHIC' THEN 50 ELSE 20 END)
               ELSE COUNT(*) END)::int AS score
             FROM "UserCard" uc
               JOIN "User" u ON u."id" = uc."userId"

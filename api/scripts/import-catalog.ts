@@ -5,7 +5,7 @@ import { createGunzip } from "node:zlib";
 import { Readable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import { Pool } from "pg";
-import { RARITIES } from "@wikideck/shared";
+import { DROP_RARITIES } from "@wikideck/shared";
 
 const args = new Map<string, string>();
 for (let i = 2; i < process.argv.length; i += 2)
@@ -25,7 +25,7 @@ const compact = MONTH.replace("-", "");
 
 const log = (msg: string) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
 
-const ordered = [...RARITIES].sort((a, b) => b.minViews - a.minViews);
+const ordered = [...DROP_RARITIES].sort((a, b) => b.minViews - a.minViews);
 const rarityOf = (views: number) => ordered.find((r) => views >= r.minViews)!.value;
 
 const cleanTitle = (raw: string) => raw.replace(/\\(.)/g, "$1").replaceAll("_", " ");
@@ -120,7 +120,7 @@ async function main() {
   await pool.end();
 
   log(`Terminé en ${Math.round((Date.now() - started) / 60000)} min. Répartition :`);
-  for (const r of [...RARITIES].reverse())
+  for (const r of [...DROP_RARITIES].reverse())
     console.log(`  ${r.code.padEnd(2)} ${(counts.get(r.value) ?? 0).toLocaleString("fr-FR")}`);
 }
 

@@ -1,7 +1,7 @@
 import {
   BULK_LIST_MAX,
   BULK_MAX_CARD_IDS,
-  RARITIES,
+  DROP_RARITIES,
   RECYCLE_MAX_LINES,
   RECYCLE_VALUES,
   type Rarity,
@@ -30,7 +30,7 @@ export const POST = withRateLimit(
 
     if (body?.bulk && typeof body.bulk === "object") {
       const { maxViews, rarities, cardIds, excludeIds } = body.bulk;
-      const known: string[] = RARITIES.map((r) => r.value);
+      const known: string[] = DROP_RARITIES.map((r) => r.value);
       if (
         typeof maxViews !== "number" ||
         !Number.isInteger(maxViews) ||
@@ -58,7 +58,7 @@ export const POST = withRateLimit(
     }
 
     if (body && Array.isArray(body.duplicates)) {
-      const known: string[] = RARITIES.map((r) => r.value);
+      const known: string[] = DROP_RARITIES.map((r) => r.value);
       if (!body.duplicates.length || !body.duplicates.every((r) => known.includes(r as string)))
         return invalid();
       return recycle(user.id, [...new Set(body.duplicates as Rarity[])]);

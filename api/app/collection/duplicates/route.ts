@@ -1,4 +1,4 @@
-import { RARITIES, RECYCLE_VALUES, type DuplicatesResponse } from "@wikideck/shared";
+import { DROP_RARITIES, RECYCLE_VALUES, type DuplicatesResponse } from "@wikideck/shared";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
@@ -14,7 +14,7 @@ export const GET = withRateLimit(
       where: { userId: user.id, quantity: { gt: 1 } },
       select: { quantity: true, card: { select: { rarity: true } } },
     });
-    const rarities = RARITIES.map((r) => {
+    const rarities = DROP_RARITIES.map((r) => {
       const mine = rows.filter((x) => x.card.rarity === r.value);
       const copies = mine.reduce((n, x) => n + x.quantity - 1, 0);
       return {

@@ -1,4 +1,4 @@
-import { GODPACK_RATE, PACK_SIZE, RARITIES, type DropRatesResponse } from "@wikideck/shared";
+import { DROP_RARITIES, GODPACK_RATE, PACK_SIZE, type DropRatesResponse } from "@wikideck/shared";
 import { rarityCounts } from "@/lib/catalog";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
@@ -13,7 +13,7 @@ export const GET = withRateLimit("cards-rates", { limit: 30, windowSec: 60 }, as
   return Response.json({
     total,
     godpack: GODPACK_RATE * 100,
-    rates: RARITIES.map((r) => {
+    rates: DROP_RARITIES.map((r) => {
       const count = counts.get(r.value) ?? 0;
       const p = count / total;
       return {

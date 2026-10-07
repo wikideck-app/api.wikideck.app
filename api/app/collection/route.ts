@@ -9,6 +9,7 @@ import {
   type CollectionSort,
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
+import { textFilter } from "@/lib/albums";
 import { loadProtection, protectionReason } from "@/lib/bulk-recycle";
 import { toCardDto } from "@/lib/cards";
 import { prisma } from "@/lib/prisma";
@@ -46,10 +47,11 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
   const where: Prisma.UserCardWhereInput = {
     userId: user.id,
     ...(favoritesOnly && { favorite: true }),
+    // chaque mot doit se trouver dans le titre ou le sous-titre de l'article
     ...((rarities.length || query) && {
       card: {
         ...(rarities.length && { rarity: { in: rarities } }),
-        ...(query && { title: { contains: query, mode: "insensitive" as const } }),
+        ...(query && { AND: textFilter(query) }),
       },
     }),
     ...(tag && { tags: { some: { id: tag, userId: user.id } } }),
@@ -76,7 +78,7 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
     take: pageSize,
   });
 
-  const [protection, sales] = await Promise.all([
+  const [protection, sales, inAlbums] = await Promise.all([
     loadProtection(user.id),
     prisma.auction.findMany({
       where: {
@@ -88,7 +90,13 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
       select: { cardId: true, currentBid: true },
       take: Math.max(1, owned.length) * 6,
     }),
+    prisma.albumCard.findMany({
+      where: { cardId: { in: owned.map((o) => o.cardId) }, album: { userId: user.id } },
+      select: { cardId: true },
+      distinct: ["cardId"],
+    }),
   ]);
+  const albumed = new Set(inAlbums.map((a) => a.cardId));
   const recent = new Map<string, number[]>();
   for (const s of sales) {
     const list = recent.get(s.cardId) ?? [];
@@ -106,6 +114,7 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
       ...toCardDto(o.card),
       quantity: o.quantity,
       favorite: o.favorite,
+      inAlbum: albumed.has(o.cardId),
       tags: o.tags.map(toTagDto),
       protectedReason:
         protectionReason(protection, {

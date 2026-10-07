@@ -1,4 +1,4 @@
-import { RARITIES } from "@wikideck/shared";
+import { DROP_RARITIES } from "@wikideck/shared";
 import type { Rarity } from "@/generated/prisma/client";
 
 const API = "https://fr.wikipedia.org/w/api.php";
@@ -24,7 +24,7 @@ export class WikipediaUnavailableError extends Error {
 }
 
 export function rarityFromViews(views: number): Rarity {
-  return RARITIES.findLast((r) => views >= r.minViews)!.value;
+  return DROP_RARITIES.findLast((r) => views >= r.minViews)!.value;
 }
 
 const MAX_PARALLEL = 4;
