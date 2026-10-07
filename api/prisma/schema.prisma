@@ -30,6 +30,8 @@ model User {
   pulls               Pull[]
   wikibits            Int               @default(500)
   dailyBonusDay       String?
+  lastWheelDay        String?
+  dropBoosts          Int               @default(0)
   achievements        UserAchievement[]
   messagesSent        Message[]         @relation("MessageSender")
   messagesReceived    Message[]         @relation("MessageRecipient")

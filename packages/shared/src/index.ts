@@ -19,6 +19,32 @@ export type TrustInfo = {
 
 export type StaffRole = "MODERATOR" | "ADMIN";
 
+export type WheelPrize =
+  | { kind: "wikibits"; amount: number; weight: number }
+  | { kind: "packs"; amount: number; weight: number }
+  | { kind: "boost"; amount: number; weight: number };
+
+// l'ordre suit les secteurs de la roue, dans le sens horaire à partir du haut ; poids sur 100
+export const WHEEL_PRIZES: readonly WheelPrize[] = [
+  { kind: "wikibits", amount: 10, weight: 24 },
+  { kind: "wikibits", amount: 25, weight: 15 },
+  { kind: "packs", amount: 1, weight: 10 },
+  { kind: "wikibits", amount: 5, weight: 25 },
+  { kind: "boost", amount: 1, weight: 3 },
+  { kind: "wikibits", amount: 15, weight: 15 },
+  { kind: "packs", amount: 2, weight: 4 },
+  { kind: "wikibits", amount: 100, weight: 4 },
+];
+
+export type WheelStatus = { canSpin: boolean };
+export type WheelSpinResponse = {
+  index: number;
+  prize: WheelPrize;
+  wikibits: number;
+  packs: number;
+  dropBoosts: number;
+};
+
 // wikibits offerts à la première connexion de chaque jour (heure de Paris)
 export const DAILY_BONUS = 10;
 
@@ -61,6 +87,8 @@ export const DROP_RARITIES = RARITIES.filter((r) => r.value !== "MYTHIC");
 
 // chance qu'une légendaire tirée soit mythique : 5 %
 export const MYTHIC_RATE = 0.05;
+// avec un booster de chance : une légendaire garantie dans le paquet, et plus souvent mythique
+export const BOOST_MYTHIC_RATE = 0.25;
 
 export const PACK_MAX = 10;
 export const PACK_SIZE = 5;
@@ -85,6 +113,7 @@ export type PackStatus = {
   packs: number;
   max: number;
   nextInMs: number | null;
+  boosts?: number;
 };
 
 export type OpenPackResponse = PackStatus & {

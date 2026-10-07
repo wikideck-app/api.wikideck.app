@@ -1,3 +1,4 @@
+import type { PackStatus } from "@wikideck/shared";
 import { prisma } from "@/lib/prisma";
 import { refill, status } from "@/lib/packs";
 import { currentUser } from "@/lib/session";
@@ -14,5 +15,5 @@ export const GET = withRateLimit("packs-status", { limit: 60, windowSec: 60 }, a
   if (state !== user) {
     await prisma.user.update({ where: { id: user.id }, data: state });
   }
-  return Response.json(status(state));
+  return Response.json({ ...status(state), boosts: user.dropBoosts } satisfies PackStatus);
 });

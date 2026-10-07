@@ -2,19 +2,26 @@ import type { OpenPackResponse } from "@wikideck/shared";
 import { toCardDto } from "@/lib/cards";
 import { checkAchievements } from "@/lib/achievements";
 import { toTagDto } from "@/lib/tags";
-import { GODPACK_RATE, MYTHIC_RATE, PACK_MAX, PACK_SIZE } from "@wikideck/shared";
+import {
+  BOOST_MYTHIC_RATE,
+  GODPACK_RATE,
+  MYTHIC_RATE,
+  PACK_MAX,
+  PACK_SIZE,
+} from "@wikideck/shared";
 import { refill, status } from "@/lib/packs";
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
 import { currentUser } from "@/lib/session";
 import { takeFromPool } from "@/lib/card-pool";
 import { acquireOpenSlot, releaseOpenSlot } from "@/lib/load";
-import { godpackEntries } from "@/lib/catalog";
+import { godpackEntries, legendaryEntry } from "@/lib/catalog";
 import { cardsFromIds, drawRandomCards, type WikiCard } from "@/lib/wikipedia";
 import { randomInt, randomUUID } from "node:crypto";
 import { withRateLimit } from "@/lib/rate-limit";
+import { readJson } from "@/lib/tags";
 
-export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, async () => {
+export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, async (request) => {
   const user = await currentUser();
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
 
@@ -26,6 +33,10 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
   const slot = randomUUID();
   let slotHeld = false;
   try {
+    const wantBoost = (await readJson(request))?.boost === true;
+    if (wantBoost && user.dropBoosts < 1)
+      return Response.json({ error: "no_boost" }, { status: 409 });
+
     const state = refill(user);
     if (state.packs < 1)
       return Response.json({ error: "no_packs", ...status(state) }, { status: 403 });
@@ -57,6 +68,24 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     }
     if (drawn.length < PACK_SIZE)
       return Response.json({ error: "wikipedia_unavailable" }, { status: 502 });
+    // booster : une légendaire garantie, elle remplace la carte la moins vue du paquet
+    let boosted = false;
+    if (wantBoost && !godpack) {
+      boosted = true;
+      if (!drawn.some((c) => c.rarity === "LEGENDARY")) {
+        try {
+          const entry = await legendaryEntry();
+          const [card] = entry ? await cardsFromIds([entry]) : [];
+          if (card && !drawn.some((c) => c.pageId === card.pageId)) {
+            drawn.sort((a, b) => a.views - b.views);
+            drawn[0] = card;
+          } else boosted = false;
+        } catch {
+          boosted = false;
+        }
+      }
+    }
+    const mythicRate = boosted ? BOOST_MYTHIC_RATE : MYTHIC_RATE;
     drawn.sort((a, b) => a.views - b.views);
 
     const next = {
@@ -67,6 +96,13 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     const openingId = randomUUID();
     const cards = await prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: user.id }, data: next });
+      if (boosted) {
+        const used = await tx.user.updateMany({
+          where: { id: user.id, dropBoosts: { gt: 0 } },
+          data: { dropBoosts: { decrement: 1 } },
+        });
+        if (used.count === 0) throw new Error("no_boost");
+      }
       const result = [];
       for (const wiki of drawn) {
         let card = await tx.card.upsert({
@@ -75,7 +111,7 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
           create: wiki,
         });
         // une légendaire sur 1/MYTHIC_RATE sort en version mythique
-        if (card.rarity === "LEGENDARY" && randomInt(1_000_000) < MYTHIC_RATE * 1_000_000) {
+        if (card.rarity === "LEGENDARY" && randomInt(1_000_000) < mythicRate * 1_000_000) {
           card = await tx.card.upsert({
             where: { pageId: -card.pageId },
             update: {},
@@ -116,9 +152,14 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     checkAchievements(user.id);
     return Response.json({
       ...status(next),
+      boosts: user.dropBoosts - (boosted ? 1 : 0),
       cards,
       ...(godpack && { godpack }),
     } satisfies OpenPackResponse);
+  } catch (e) {
+    if (e instanceof Error && e.message === "no_boost")
+      return Response.json({ error: "no_boost" }, { status: 409 });
+    throw e;
   } finally {
     if (slotHeld) await releaseOpenSlot(slot);
     await redis.del(lock);

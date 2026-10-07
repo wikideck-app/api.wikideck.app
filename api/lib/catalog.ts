@@ -16,6 +16,19 @@ export async function rarityCounts(): Promise<Map<Rarity, number>> {
   return counts;
 }
 
+export async function legendaryEntry(): Promise<{ pageId: number; views: number } | null> {
+  const total = (await rarityCounts()).get("LEGENDARY") ?? 0;
+  if (!total) return null;
+  const [row] = await prisma.wikiArticle.findMany({
+    where: { rarity: "LEGENDARY" },
+    orderBy: { views: "desc" },
+    skip: randomInt(total),
+    take: 1,
+    select: { pageId: true, views: true },
+  });
+  return row ?? null;
+}
+
 export async function godpackEntries(
   count: number,
 ): Promise<{ pageId: number; views: number }[] | null> {
