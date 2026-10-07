@@ -305,7 +305,7 @@ export function searchTokens(query: string, min = 1): string[] {
 export const COLLECTION_PAGE_SIZE = 56;
 
 export const IMPORT_BATCH_SIZE = 20;
-export const IMPORT_MAX_CARDS = 3000;
+export const IMPORT_MAX_CARDS = 50_000;
 export const WIKI_MASTERS_ORIGINS = ["https://www.wiki-masters.com", "https://wiki-masters.com"];
 
 export type ImportItem = {
