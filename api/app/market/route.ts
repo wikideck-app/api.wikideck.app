@@ -12,6 +12,7 @@ import {
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
 import { lockedCards } from "@/lib/card-locks";
+import { notifyUser } from "@/lib/notify";
 import { MarketError, auctionInclude, settleDue, takeCard, toAuctionDto } from "@/lib/market";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -127,6 +128,12 @@ export const POST = withRateLimit(
           include: auctionInclude(user.id),
         });
       });
+      const wishers = await prisma.wishlistItem.findMany({
+        where: { cardId, userId: { not: user.id } },
+        select: { userId: true },
+      });
+      for (const { userId } of wishers)
+        notifyUser(userId, { type: "wishlist", auction: auction.id, card: auction.card.title });
       return Response.json(toAuctionDto(auction, user.id) satisfies AuctionDto, { status: 201 });
     } catch (e) {
       if (e instanceof MarketError) return Response.json({ error: e.code }, { status: e.status });

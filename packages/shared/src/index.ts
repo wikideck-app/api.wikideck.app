@@ -1103,6 +1103,7 @@ export type LiveEvent =
   | { type: "trade"; from: string }
   | { type: "outbid"; auction: string }
   | { type: "auction"; auction: string }
+  | { type: "wishlist"; auction: string; card: string }
   | { type: "gift"; from: string }
   | { type: "achievement" }
   | { type: "staff"; kind: "alert" | "report" };
