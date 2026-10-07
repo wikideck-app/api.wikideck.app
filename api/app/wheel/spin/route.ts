@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { WHEEL_PRIZES, type WheelSpinResponse } from "@wikideck/shared";
 import { parisDay } from "@/lib/day";
+import { announceSpin } from "@/lib/wheel-feed";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
@@ -20,16 +21,24 @@ export const POST = withRateLimit("wheel-spin", { limit: 10, windowSec: 60 }, as
   const prize = WHEEL_PRIZES[index];
 
   // le filtre sur le jour rend le tirage atomique : un seul tour par jour, même en parallèle
-  const claimed = await prisma.user.updateMany({
-    where: { id: user.id, OR: [{ lastWheelDay: null }, { lastWheelDay: { not: today } }] },
-    data: {
-      lastWheelDay: today,
-      ...(prize.kind === "wikibits" && { wikibits: { increment: prize.amount } }),
-      ...(prize.kind === "packs" && { packs: { increment: prize.amount } }),
-      ...(prize.kind === "boost" && { dropBoosts: { increment: prize.amount } }),
-    },
+  const claimed = await prisma.$transaction(async (tx) => {
+    const done = await tx.user.updateMany({
+      where: { id: user.id, OR: [{ lastWheelDay: null }, { lastWheelDay: { not: today } }] },
+      data: {
+        lastWheelDay: today,
+        ...(prize.kind === "wikibits" && { wikibits: { increment: prize.amount } }),
+        ...(prize.kind === "packs" && { packs: { increment: prize.amount } }),
+        ...(prize.kind === "boost" && { dropBoosts: { increment: prize.amount } }),
+      },
+    });
+    if (done.count === 0) return false;
+    await tx.wheelSpin.create({
+      data: { userId: user.id, index, kind: prize.kind, amount: prize.amount },
+    });
+    return true;
   });
-  if (claimed.count === 0) return Response.json({ error: "already_spun" }, { status: 409 });
+  if (!claimed) return Response.json({ error: "already_spun" }, { status: 409 });
+  announceSpin(user.isPublic ? user.username : null, prize);
 
   const me = await prisma.user.findUniqueOrThrow({
     where: { id: user.id },

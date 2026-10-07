@@ -57,6 +57,7 @@ model User {
   abuseSignals        AbuseSignal[]
   reportsMade         MessageReport[]   @relation("ReportReporter")
   bugReports          BugReport[]
+  wheelSpins          WheelSpin[]
   reportsReceived     MessageReport[]   @relation("ReportSender")
 }
 
@@ -523,4 +524,18 @@ model BugReport {
 
   @@index([status, createdAt(sort: Desc)])
   @@index([userId, status])
+}
+
+model WheelSpin {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  index     Int
+  kind      String
+  amount    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
 }

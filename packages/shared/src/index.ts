@@ -36,6 +36,21 @@ export const WHEEL_PRIZES: readonly WheelPrize[] = [
   { kind: "wikibits", amount: 100, weight: 4 },
 ];
 
+export const wheelPrizeLabel = (p: Pick<WheelPrize, "kind" | "amount">) =>
+  p.kind === "wikibits"
+    ? `${p.amount} wikibits`
+    : p.kind === "boost"
+      ? "un booster de chance"
+      : `${p.amount} paquet${p.amount > 1 ? "s" : ""}`;
+
+export type WheelHistoryEntry = {
+  at: string;
+  prize: Pick<WheelPrize, "kind" | "amount">;
+  // pseudo du joueur, null s'il garde son profil privé
+  player?: string | null;
+};
+export type WheelHistoryResponse = { mine: WheelHistoryEntry[]; recent: WheelHistoryEntry[] };
+
 export type WheelStatus = { canSpin: boolean };
 export type WheelSpinResponse = {
   index: number;
