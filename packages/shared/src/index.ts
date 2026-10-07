@@ -1106,7 +1106,7 @@ export type LiveEvent =
   | { type: "wishlist"; auction: string; card: string }
   | { type: "gift"; from: string }
   | { type: "achievement" }
-  | { type: "staff"; kind: "alert" | "report" };
+  | { type: "staff"; kind: "alert" | "report" | "bug" };
 
 export type ProfileStats = {
   cards: number;
@@ -1352,6 +1352,26 @@ export type StaffReportRow = {
   handledBy: string | null;
   handledAt: string | null;
 };
+
+export const BUG_REPORT_MIN = 10;
+export const BUG_REPORT_MAX = 2000;
+export const BUG_REPORT_OPEN_MAX = 5;
+
+export type BugReportInput = { message: string; page?: string };
+
+export type StaffBugReportRow = {
+  id: string;
+  status: "OPEN" | "RESOLVED" | "DISMISSED";
+  createdAt: string;
+  reporter: { id: string; username: string };
+  message: string;
+  page: string | null;
+  userAgent: string | null;
+  handledBy: string | null;
+  handledAt: string | null;
+};
+
+export type StaffBugReportAction = { action: "resolve" } | { action: "dismiss" };
 
 export type StaffAuctionAction = { action: "cancel"; reason: string };
 export type StaffGuildAction =

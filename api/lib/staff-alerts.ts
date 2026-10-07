@@ -21,7 +21,7 @@ export async function staffAlertCount(): Promise<number> {
     _sum: { weight: true },
     having: { weight: { _sum: { gte: SUSPECT_RISK } } },
   });
-  const [flagged, reports] = await Promise.all([
+  const [flagged, reports, bugs] = await Promise.all([
     grouped.length
       ? prisma.user.count({
           where: {
@@ -32,8 +32,9 @@ export async function staffAlertCount(): Promise<number> {
         })
       : 0,
     prisma.messageReport.count({ where: { status: "OPEN" } }),
+    prisma.bugReport.count({ where: { status: "OPEN" } }),
   ]);
-  const total = flagged + reports;
+  const total = flagged + reports + bugs;
   await redis.set(KEY, String(total), "EX", CACHE_SEC).catch(() => {});
   return total;
 }

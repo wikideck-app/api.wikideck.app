@@ -53,6 +53,7 @@ model User {
   devices             Device[]
   abuseSignals        AbuseSignal[]
   reportsMade         MessageReport[]   @relation("ReportReporter")
+  bugReports          BugReport[]
   reportsReceived     MessageReport[]   @relation("ReportSender")
 }
 
@@ -502,4 +503,21 @@ model MessageReport {
 
   @@unique([messageId, reporterId])
   @@index([status, createdAt(sort: Desc)])
+}
+
+model BugReport {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  message   String
+  page      String?
+  userAgent String?
+  status    String    @default("OPEN")
+  createdAt DateTime  @default(now())
+  handledBy String?
+  handledAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId, status])
 }
