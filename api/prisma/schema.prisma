@@ -29,6 +29,7 @@ model User {
   showcaseCard        Card?             @relation("Showcase", fields: [showcaseCardId], references: [id], onDelete: SetNull)
   pulls               Pull[]
   wikibits            Int               @default(500)
+  dailyBonusDay       String?
   achievements        UserAchievement[]
   messagesSent        Message[]         @relation("MessageSender")
   messagesReceived    Message[]         @relation("MessageRecipient")

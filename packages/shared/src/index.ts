@@ -19,6 +19,9 @@ export type TrustInfo = {
 
 export type StaffRole = "MODERATOR" | "ADMIN";
 
+// wikibits offerts à la première connexion de chaque jour (heure de Paris)
+export const DAILY_BONUS = 10;
+
 export type SessionUser = {
   id: string;
   username: string;
@@ -26,6 +29,7 @@ export type SessionUser = {
   settings: UserSettings;
   pendingTrades: number;
   wikibits: number;
+  dailyBonus: number;
   pendingFriends: number;
   unreadMessages: number;
   claimableAchievements: number;
