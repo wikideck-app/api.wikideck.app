@@ -7,7 +7,6 @@ import { SUSPECT_RISK as ALERT_RISK, notifyStaff } from "@/lib/staff-alerts";
 export const SIGNAL_WEIGHTS = {
   SHARED_DEVICE: 25,
   YOUNG_DISCORD: 10,
-  FUNNEL: 20,
   BATTLE_PAIR: 15,
 } as const;
 export type SignalType = keyof typeof SIGNAL_WEIGHTS;
@@ -16,7 +15,6 @@ const DAY = 86_400_000;
 const RISK_WINDOW_DAYS = 30;
 const SUSPECT_RISK = ALERT_RISK;
 const RESTRICTED_RISK = 60;
-export const YOUNG_ACCOUNT_DAYS = 14;
 const YOUNG_DISCORD_DAYS = 7;
 const CACHE_SEC = 60;
 
@@ -103,12 +101,6 @@ export async function recordSignal(
   if (risk >= ALERT_RISK && risk - SIGNAL_WEIGHTS[type] < ALERT_RISK)
     await notifyStaff({ type: "staff", kind: "alert" });
   return true;
-}
-
-export async function checkFunnel(giver: Subject, takerId: string, key: string) {
-  const ageDays = (Date.now() - giver.createdAt.getTime()) / DAY;
-  if (ageDays >= YOUNG_ACCOUNT_DAYS) return;
-  await recordSignal(giver.id, "FUNNEL", key, { to: takerId });
 }
 
 export async function checkNewAccount(user: Subject) {

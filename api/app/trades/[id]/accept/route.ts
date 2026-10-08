@@ -3,7 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { notifyUser } from "@/lib/notify";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
-import { checkFunnel, transactionBlock } from "@/lib/trust";
+import { transactionBlock } from "@/lib/trust";
 import { currentUser } from "@/lib/session";
 import { isUuid } from "@/lib/tags";
 import { TradeError, expireStale } from "@/lib/trades";
@@ -84,18 +84,6 @@ export const POST = withRateLimit<Ctx>(
     }
     checkAchievements(user.id, existing.proposerId);
     notifyUser(existing.proposerId, { type: "trade", from: user.username });
-    void flagOneSidedTrade(id, existing.proposerId, user.id).catch(() => {});
     return new Response(null, { status: 204 });
   },
 );
-
-async function flagOneSidedTrade(tradeId: string, proposerId: string, recipientId: string) {
-  const items = await prisma.tradeItem.findMany({ where: { tradeId }, select: { side: true } });
-  const offers = items.some((i) => i.side === "OFFER");
-  const requests = items.some((i) => i.side === "REQUEST");
-  if (offers === requests) return;
-  const giverId = offers ? proposerId : recipientId;
-  const takerId = offers ? recipientId : proposerId;
-  const giver = await prisma.user.findUnique({ where: { id: giverId } });
-  if (giver) await checkFunnel(giver, takerId, `trade:${tradeId}`);
-}

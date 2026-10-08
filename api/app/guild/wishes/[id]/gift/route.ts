@@ -1,14 +1,14 @@
 import { GUILD_IP_POINTS } from "@wikideck/shared";
 import { notifyUser } from "@/lib/notify";
 import { checkAchievements } from "@/lib/achievements";
-import { Prisma, type User } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { GuildError, addScore, dayStartOf } from "@/lib/guild";
 import { MarketError, giveCard, takeCard } from "@/lib/market";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
 import { isUuid } from "@/lib/tags";
-import { checkFunnel, transactionBlock } from "@/lib/trust";
+import { transactionBlock } from "@/lib/trust";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -59,7 +59,6 @@ export const POST = withRateLimit<Ctx>(
       });
       checkAchievements(user.id, receiver);
       notifyUser(receiver, { type: "gift", from: user.username });
-      void flagGuildGift(user, receiver, id).catch(() => {});
       return Response.json({ points });
     } catch (e) {
       if (e instanceof GuildError || e instanceof MarketError)
@@ -70,7 +69,3 @@ export const POST = withRateLimit<Ctx>(
     }
   },
 );
-
-async function flagGuildGift(giver: User, receiverId: string, wishId: string) {
-  await checkFunnel(giver, receiverId, `gift:${wishId}`);
-}

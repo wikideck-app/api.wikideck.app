@@ -53,6 +53,7 @@ model User {
   bannedAt            DateTime?
   banReason           String?
   trustOverride       String?
+  alertsReviewedAt    DateTime?
   devices             Device[]
   abuseSignals        AbuseSignal[]
   reportsMade         MessageReport[]   @relation("ReportReporter")

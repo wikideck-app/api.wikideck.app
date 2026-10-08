@@ -9,6 +9,10 @@ const KEY = "staff:alerts";
 const CACHE_SEC = 30;
 export const SUSPECT_RISK = 30;
 
+// une alerte « lue » ne revient que si un nouvel indice arrive après
+export const isUnreviewed = (reviewedAt: Date | null, lastSignal: Date | null | undefined) =>
+  !reviewedAt || (lastSignal != null && lastSignal > reviewedAt);
+
 export async function staffAlertCount(): Promise<number> {
   try {
     // compteur en cache, recalculé de temps en temps
@@ -19,17 +23,24 @@ export async function staffAlertCount(): Promise<number> {
     by: ["userId"],
     where: { createdAt: { gte: new Date(Date.now() - 30 * DAY) } },
     _sum: { weight: true },
+    _max: { createdAt: true },
     having: { weight: { _sum: { gte: SUSPECT_RISK } } },
   });
   const [flagged, reports, bugs] = await Promise.all([
     grouped.length
-      ? prisma.user.count({
-          where: {
-            id: { in: grouped.map((g) => g.userId) },
-            bannedAt: null,
-            trustOverride: null,
-          },
-        })
+      ? prisma.user
+          .findMany({
+            where: {
+              id: { in: grouped.map((g) => g.userId) },
+              bannedAt: null,
+              trustOverride: null,
+            },
+            select: { id: true, alertsReviewedAt: true },
+          })
+          .then((users) => {
+            const last = new Map(grouped.map((g) => [g.userId, g._max.createdAt]));
+            return users.filter((u) => isUnreviewed(u.alertsReviewedAt, last.get(u.id))).length;
+          })
       : 0,
     prisma.messageReport.count({ where: { status: "OPEN" } }),
     prisma.bugReport.count({ where: { status: "OPEN" } }),
