@@ -14,7 +14,7 @@ import { leaveGuild } from "@/lib/guild";
 import { logStaff } from "@/lib/staff";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
-import { SESSION_COOKIE, cookieOptions, currentUser, destroySession } from "@/lib/session";
+import { SESSION_COOKIE, cookieOptions, currentUser, destroySession, sessionUser } from "@/lib/session";
 import { isUuid, readJson } from "@/lib/tags";
 import { parseUsername } from "@/lib/usernames";
 
@@ -107,7 +107,7 @@ export const PATCH = withRateLimit("me-update", { limit: 20, windowSec: 60 }, as
 });
 
 export const DELETE = withRateLimit("me-delete", { limit: 3, windowSec: 60 }, async (request) => {
-  const user = await currentUser();
+  const user = await sessionUser();
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
   const body = await readJson(request);
   if (body?.confirm !== DELETE_CONFIRMATION) {

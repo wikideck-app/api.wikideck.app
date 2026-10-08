@@ -1,7 +1,7 @@
 import type { StaffRole } from "@wikideck/shared";
 import type { User } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { currentUser, currentUserOrKey } from "@/lib/session";
+import { currentUser, sessionUser } from "@/lib/session";
 
 const RANK: Record<StaffRole, number> = { MODERATOR: 1, ADMIN: 2 };
 
@@ -31,7 +31,7 @@ export async function requireStaff(
   min: StaffRole,
   { sessionOnly = false }: { sessionOnly?: boolean } = {},
 ): Promise<{ user: User; role: StaffRole } | Response> {
-  const user = await (sessionOnly ? currentUser() : currentUserOrKey());
+  const user = await (sessionOnly ? sessionUser() : currentUser());
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
   const role = staffRoleOf(user);
   if (!role) return Response.json({ error: "not_found" }, { status: 404 });

@@ -12,7 +12,7 @@ import {
 import { refill, status } from "@/lib/packs";
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
-import { currentUser } from "@/lib/session";
+import { sessionUser } from "@/lib/session";
 import { takeFromPool } from "@/lib/card-pool";
 import { acquireOpenSlot, releaseOpenSlot } from "@/lib/load";
 import { godpackEntries, legendaryEntry } from "@/lib/catalog";
@@ -24,7 +24,7 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { readJson } from "@/lib/tags";
 
 export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, async (request) => {
-  const user = await currentUser();
+  const user = await sessionUser();
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
 
   const lock = `lock:open-pack:${user.id}`;

@@ -41,15 +41,17 @@ export function cookieOptions(maxAge: number) {
   };
 }
 
-export async function currentUser() {
+// cookie de session uniquement : routes qu'une clé API ne doit jamais atteindre (ouverture de paquets,
+// suppression du compte, gestion des clés)
+export async function sessionUser() {
   const { cookies } = await import("next/headers");
   return getSessionUser((await cookies()).get(SESSION_COOKIE)?.value);
 }
 
-// session OU clé API (en-tête Authorization: Bearer wdk_…) : réservé aux routes /staff, voir requireStaff
-export async function currentUserOrKey() {
+// session OU clé API (en-tête Authorization: Bearer wdk_…) : la clé agit au nom de son titulaire
+export async function currentUser() {
   const { headers } = await import("next/headers");
   const { bearerToken, userForApiKey } = await import("@/lib/api-keys");
   const token = bearerToken((await headers()).get("authorization"));
-  return token ? userForApiKey(token) : currentUser();
+  return token ? userForApiKey(token) : sessionUser();
 }
