@@ -1483,7 +1483,10 @@ export type DeletedAccountRow = {
 };
 
 export const ALBUM_NAME_MAX = 40;
-export const ALBUM_MAX_PER_USER = 20;
+// albums et sous-albums confondus
+export const ALBUM_MAX_PER_USER = 100;
+// niveaux de classeur : un album, ses sous-albums, leurs sous-albums...
+export const ALBUM_MAX_DEPTH = 4;
 export const ALBUM_CARDS_MAX = 500;
 export const ALBUM_ADD_BATCH = 100;
 export const ALBUM_HIGHLIGHTS = 3;
@@ -1491,7 +1494,11 @@ export const ALBUM_HIGHLIGHTS = 3;
 export type AlbumSummary = {
   id: string;
   name: string;
+  /** null pour un album de premier niveau */
+  parentId: string | null;
+  /** cartes distinctes de l'album et de tous ses sous-albums */
   cards: number;
+  subAlbums: number;
   top: CardDto[];
   hasCard?: boolean;
   updatedAt: string;
@@ -1500,7 +1507,14 @@ export type AlbumSummary = {
 export type AlbumsResponse = { albums: AlbumSummary[]; max: number };
 
 export type AlbumResponse = {
-  album: { id: string; name: string; createdAt: string };
+  album: { id: string; name: string; parentId: string | null; createdAt: string };
+  /** du premier niveau jusqu'au parent direct */
+  trail: { id: string; name: string }[];
+  children: AlbumSummary[];
+  /** niveau de l'album (1 = premier niveau) et plus grand niveau atteint dans son arbre */
+  depth: number;
+  /** « all » : cartes de l'album et de ses sous-albums ; « own » : celles de l'album seul */
+  scope: "own" | "all";
   count: number;
   highlights: CollectionCard[];
   cards: CollectionCard[];

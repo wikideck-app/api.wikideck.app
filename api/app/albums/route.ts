@@ -1,11 +1,18 @@
 import {
+  ALBUM_MAX_DEPTH,
   ALBUM_MAX_PER_USER,
   ALBUM_NAME_MAX,
-  type AlbumSummary,
   type AlbumsResponse,
 } from "@wikideck/shared";
 import { Prisma } from "@/generated/prisma/client";
-import { highlightsOf, parseAlbumName, pruneAlbums } from "@/lib/albums";
+import {
+  depthOf,
+  fitsDepth,
+  loadTree,
+  parseAlbumName,
+  pruneAlbums,
+  summariesOf,
+} from "@/lib/albums";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
@@ -18,31 +25,30 @@ export const GET = withRateLimit("albums-list", { limit: 60, windowSec: 60 }, as
 
   const cardParam = request.nextUrl.searchParams.get("card");
   const card = isUuid(cardParam) ? cardParam : null;
-  const albums = await prisma.album.findMany({
-    where: { userId: user.id },
-    orderBy: { updatedAt: "desc" },
-    include: { _count: { select: { cards: true } } },
-  });
+  // tous les albums, sous-albums compris : le sélecteur d'une carte en a besoin ; la page des
+  // albums n'affiche que ceux du premier niveau et leurs couvertures
+  const tree = await loadTree(user.id);
   const withCard = card
     ? new Set(
         (
           await prisma.albumCard.findMany({
-            where: { cardId: card, albumId: { in: albums.map((a) => a.id) } },
+            where: { cardId: card, albumId: { in: tree.map((a) => a.id) } },
             select: { albumId: true },
           })
         ).map((r) => r.albumId),
       )
     : null;
-  const summaries: AlbumSummary[] = await Promise.all(
-    albums.map(async (a) => ({
-      id: a.id,
-      name: a.name,
-      cards: a._count.cards,
-      top: await highlightsOf(user.id, a.id),
-      ...(withCard && { hasCard: withCard.has(a.id) }),
-      updatedAt: a.updatedAt.toISOString(),
-    })),
-  );
+  const roots = new Set(tree.filter((a) => a.parentId === null).map((a) => a.id));
+  const [rootSummaries, otherSummaries] = await Promise.all([
+    summariesOf(user.id, tree, [...roots], { withCard }),
+    summariesOf(
+      user.id,
+      tree,
+      tree.filter((a) => !roots.has(a.id)).map((a) => a.id),
+      { withTop: false, withCard },
+    ),
+  ]);
+  const summaries = [...rootSummaries, ...otherSummaries];
   return Response.json({ albums: summaries, max: ALBUM_MAX_PER_USER } satisfies AlbumsResponse);
 });
 
@@ -52,14 +58,26 @@ export const POST = withRateLimit(
   async (request) => {
     const user = await currentUser();
     if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
-    const name = parseAlbumName((await readJson(request))?.name);
+    const body = await readJson(request);
+    const name = parseAlbumName(body?.name);
     if (!name)
       return Response.json({ error: "invalid_name", max: ALBUM_NAME_MAX }, { status: 400 });
-    if ((await prisma.album.count({ where: { userId: user.id } })) >= ALBUM_MAX_PER_USER)
+    const parentId = body?.parentId ?? null;
+    if (parentId !== null && !isUuid(parentId))
+      return Response.json({ error: "not_found" }, { status: 404 });
+    const tree = await loadTree(user.id);
+    if (tree.length >= ALBUM_MAX_PER_USER)
       return Response.json({ error: "too_many_albums" }, { status: 403 });
+    if (parentId !== null) {
+      if (!tree.some((a) => a.id === parentId))
+        return Response.json({ error: "not_found" }, { status: 404 });
+      if (!fitsDepth(depthOf(tree, parentId)))
+        return Response.json({ error: "album_too_deep", max: ALBUM_MAX_DEPTH }, { status: 409 });
+    }
     try {
-      const album = await prisma.album.create({ data: { userId: user.id, name } });
-      return Response.json({ id: album.id, name: album.name }, { status: 201 });
+      const album = await prisma.album.create({ data: { userId: user.id, name, parentId } });
+      if (parentId) await prisma.album.update({ where: { id: parentId }, data: { updatedAt: new Date() } });
+      return Response.json({ id: album.id, name: album.name, parentId }, { status: 201 });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
         return Response.json({ error: "album_exists" }, { status: 409 });

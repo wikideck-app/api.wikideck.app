@@ -1,16 +1,23 @@
-import { RARITIES, type AlbumResponse, type Rarity } from "@wikideck/shared";
+import { ALBUM_MAX_DEPTH, RARITIES, type AlbumResponse, type Rarity } from "@wikideck/shared";
 import { Prisma } from "@/generated/prisma/client";
 import {
   BEST_FIRST,
   PAGE,
   albumOf,
   clampPage,
+  depthOf,
+  fitsDepth,
+  heightOf,
   highlightsOf,
+  loadTree,
   parseAlbumName,
   pruneAlbums,
   rarityFilter,
+  subtreeIds,
+  summariesOf,
   textFilter,
   toCollectionCard,
+  trailOf,
 } from "@/lib/albums";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -34,7 +41,14 @@ export const GET = withRateLimit<Ctx>(
     const sp = request.nextUrl.searchParams;
     const query = (sp.get("q") ?? "").trim().slice(0, 100);
     const rarities = rarityFilter(sp.get("rarity"));
-    const inAlbum: Prisma.CardWhereInput = { albumCards: { some: { albumId: id } } };
+    const tree = await loadTree(user.id);
+    const scope = sp.get("scope") === "all" ? "all" : "own";
+    const family = subtreeIds(tree, id);
+    // « own » : les cartes rangées dans cet album ; « all » : aussi celles de ses sous-albums
+    const inAlbum: Prisma.CardWhereInput = {
+      albumCards: { some: { albumId: scope === "all" ? { in: family } : id } },
+    };
+    const inFamily: Prisma.CardWhereInput = { albumCards: { some: { albumId: { in: family } } } };
     const where: Prisma.UserCardWhereInput = {
       userId: user.id,
       card: {
@@ -46,14 +60,16 @@ export const GET = withRateLimit<Ctx>(
       },
     };
 
-    const [count, total, byRarity, highlights] = await Promise.all([
-      prisma.userCard.count({ where: { userId: user.id, card: inAlbum } }),
+    const childIds = tree.filter((n) => n.parentId === id).map((n) => n.id);
+    const [count, total, byRarity, highlights, children] = await Promise.all([
+      prisma.userCard.count({ where: { userId: user.id, card: inFamily } }),
       prisma.userCard.count({ where }),
       prisma.userCard.findMany({
         where: { userId: user.id, card: inAlbum },
         select: { card: { select: { rarity: true } } },
       }),
-      highlightsOf(user.id, id),
+      highlightsOf(user.id, family),
+      summariesOf(user.id, tree, childIds),
     ]);
     const totalPages = Math.max(1, Math.ceil(total / PAGE));
     const page = clampPage(sp.get("page"), totalPages);
@@ -68,7 +84,16 @@ export const GET = withRateLimit<Ctx>(
     for (const r of byRarity) tally.set(r.card.rarity, (tally.get(r.card.rarity) ?? 0) + 1);
 
     return Response.json({
-      album: { id: album.id, name: album.name, createdAt: album.createdAt.toISOString() },
+      album: {
+        id: album.id,
+        name: album.name,
+        parentId: album.parentId,
+        createdAt: album.createdAt.toISOString(),
+      },
+      trail: trailOf(tree, id),
+      children,
+      depth: depthOf(tree, id),
+      scope,
       count,
       highlights,
       cards: rows.map((r) => toCollectionCard(r, true)),
@@ -85,6 +110,7 @@ export const GET = withRateLimit<Ctx>(
   },
 );
 
+// renomme et/ou déplace : { name?: string, parentId?: string | null }
 export const PATCH = withRateLimit<Ctx>(
   "album-rename",
   { limit: 30, windowSec: 60 },
@@ -92,13 +118,35 @@ export const PATCH = withRateLimit<Ctx>(
     const user = await currentUser();
     if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
     const { id } = await params;
-    if (!isUuid(id) || !(await albumOf(user.id, id)))
-      return Response.json({ error: "not_found" }, { status: 404 });
-    const name = parseAlbumName((await readJson(request))?.name);
-    if (!name) return Response.json({ error: "invalid_name" }, { status: 400 });
+    const album = isUuid(id) ? await albumOf(user.id, id) : null;
+    if (!album) return Response.json({ error: "not_found" }, { status: 404 });
+    const body = await readJson(request);
+    const data: { name?: string; parentId?: string | null } = {};
+    if (body?.name !== undefined) {
+      const name = parseAlbumName(body.name);
+      if (!name) return Response.json({ error: "invalid_name" }, { status: 400 });
+      data.name = name;
+    }
+    if (body && "parentId" in body) {
+      const parentId = body.parentId;
+      if (parentId !== null && !isUuid(parentId))
+        return Response.json({ error: "not_found" }, { status: 404 });
+      const tree = await loadTree(user.id);
+      if (parentId !== null) {
+        if (!tree.some((a) => a.id === parentId))
+          return Response.json({ error: "not_found" }, { status: 404 });
+        // on ne range pas un album dans lui-même ni dans l'un de ses sous-albums
+        if (subtreeIds(tree, id).includes(parentId))
+          return Response.json({ error: "album_cycle" }, { status: 409 });
+        if (!fitsDepth(depthOf(tree, parentId), heightOf(tree, id)))
+          return Response.json({ error: "album_too_deep", max: ALBUM_MAX_DEPTH }, { status: 409 });
+      }
+      data.parentId = parentId;
+    }
+    if (Object.keys(data).length === 0) return Response.json({ error: "invalid" }, { status: 400 });
     try {
-      await prisma.album.update({ where: { id }, data: { name } });
-      return Response.json({ id, name });
+      const updated = await prisma.album.update({ where: { id }, data });
+      return Response.json({ id, name: updated.name, parentId: updated.parentId });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
         return Response.json({ error: "album_exists" }, { status: 409 });

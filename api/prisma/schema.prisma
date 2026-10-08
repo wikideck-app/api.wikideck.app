@@ -304,13 +304,18 @@ model Album {
   id        String   @id @default(uuid(7)) @db.Uuid
   userId    String   @db.Uuid
   name      String
+  parentId  String?  @db.Uuid
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cards AlbumCard[]
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   Album?      @relation("AlbumTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Album[]     @relation("AlbumTree")
+  cards    AlbumCard[]
 
-  @@unique([userId, name])
+  // l'unicité du nom (par parent, et parmi les albums de premier niveau) est garantie par deux
+  // index partiels créés dans la migration album_tree : Prisma ne sait pas les décrire
+  @@index([userId, parentId])
 }
 
 model AlbumCard {
