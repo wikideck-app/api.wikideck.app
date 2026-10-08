@@ -1,7 +1,7 @@
 import type { StaffRole } from "@wikideck/shared";
 import type { User } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { currentUser } from "@/lib/session";
+import { currentUser, currentUserOrKey } from "@/lib/session";
 
 const RANK: Record<StaffRole, number> = { MODERATOR: 1, ADMIN: 2 };
 
@@ -26,10 +26,12 @@ export function outranks(actor: StaffRole, target: Pick<User, "discordId" | "sta
   return t === null || RANK[actor] > RANK[t];
 }
 
+// sessionOnly : refuse les clés API (gestion des clés elles-mêmes, pour qu'une clé ne puisse pas en créer d'autres)
 export async function requireStaff(
   min: StaffRole,
+  { sessionOnly = false }: { sessionOnly?: boolean } = {},
 ): Promise<{ user: User; role: StaffRole } | Response> {
-  const user = await currentUser();
+  const user = await (sessionOnly ? currentUser() : currentUserOrKey());
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
   const role = staffRoleOf(user);
   if (!role) return Response.json({ error: "not_found" }, { status: 404 });

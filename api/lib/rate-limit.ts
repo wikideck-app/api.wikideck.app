@@ -23,6 +23,9 @@ function clientIp(request: NextRequest) {
 }
 
 function identity(request: NextRequest) {
+  const auth = request.headers.get("authorization");
+  if (auth && /^Bearer\s+wdk_/i.test(auth))
+    return `k:${createHash("sha256").update(auth).digest("hex").slice(0, 24)}`;
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   if (token) return `s:${createHash("sha256").update(token).digest("hex").slice(0, 24)}`;
   return `ip:${clientIp(request)}`;

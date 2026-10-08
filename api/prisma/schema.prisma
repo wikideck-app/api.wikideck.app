@@ -58,6 +58,7 @@ model User {
   reportsMade         MessageReport[]   @relation("ReportReporter")
   bugReports          BugReport[]
   wheelSpins          WheelSpin[]
+  apiKeys             ApiKey[]
   reportsReceived     MessageReport[]   @relation("ReportSender")
 }
 
@@ -543,4 +544,18 @@ model WheelSpin {
 
   @@index([createdAt(sort: Desc)])
   @@index([userId, createdAt(sort: Desc)])
+}
+
+model ApiKey {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  prefix     String
+  hash       String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@index([userId, revokedAt])
 }

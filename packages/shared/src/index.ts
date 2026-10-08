@@ -1326,6 +1326,19 @@ export type StaffAuditRow = {
   createdAt: string;
 };
 
+export type StaffApiKeyRow = {
+  id: string;
+  name: string;
+  prefix: string;
+  ownerName: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
+
+export type StaffApiKeyCreated = { key: string; row: StaffApiKeyRow };
+
+export const API_KEY_MAX_PER_USER = 10;
+
 export type StaffMemberDetail = StaffMemberRow & {
   discordId: string;
   discordCreatedAt: string | null;
