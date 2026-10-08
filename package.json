@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "pnpm --filter @wikideck/api dev",
     "build": "pnpm --filter @wikideck/api build",
+    "start": "pnpm --filter @wikideck/api start",
     "lint": "pnpm --filter @wikideck/api lint"
   },
   "packageManager": "pnpm@11.22.0"
