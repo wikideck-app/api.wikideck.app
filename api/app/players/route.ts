@@ -13,7 +13,8 @@ export const GET = withRateLimit(
     const q = (request.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 40);
     if ([...q].length < 2) return Response.json({ players: [] });
 
-    // pour l'ajout d'amis on cherche le nom discord exact, sinon on pourrait les lister par morceaux
+    // pour l'ajout d'amis on cherche par le début du nom discord (jamais le pseudo de profil) :
+    // on ne retrouve pas un joueur par un morceau du milieu, et 2 caractères au moins sont requis
     const byDiscord = request.nextUrl.searchParams.get("by") === "discord";
     const handle = q.replace(/^@/, "");
     const players = await prisma.user.findMany({
@@ -21,7 +22,7 @@ export const GET = withRateLimit(
         id: { not: user.id },
         bannedAt: null,
         ...(byDiscord
-          ? { discordName: { equals: handle, mode: "insensitive" } }
+          ? { discordName: { startsWith: handle, mode: "insensitive" } }
           : { username: { contains: q, mode: "insensitive" } }),
       },
       orderBy: { username: "asc" },
