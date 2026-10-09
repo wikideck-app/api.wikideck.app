@@ -255,6 +255,73 @@ export async function foreignImages(
       });
     }
   }
+
+  // dernier recours : l'image que Wikidata associe à l'élément (Wikimedia Commons)
+  const missing = entries.filter((e) => !found.has(e.pageId));
+  const wikidata = await wikidataImages(missing.map((e) => e.qid));
+  for (const e of missing) {
+    const source = wikidata.get(e.qid);
+    if (source) found.set(e.pageId, source);
+  }
+  return found;
+}
+
+// du plus au moins représentatif : photo, logo, drapeau, blason, carte de localisation
+const WIKIDATA_IMAGE_PROPERTIES = ["P18", "P154", "P41", "P94", "P242"];
+
+async function wikidataImages(qids: string[]): Promise<Map<string, string>> {
+  const images = new Map<string, string>();
+  for (let i = 0; i < qids.length; i += 50) {
+    const batch = qids.slice(i, i + 50).filter((q) => /^Q\d+$/.test(q));
+    if (!batch.length) continue;
+    const sparql = `SELECT ?item ?prop ?file WHERE {
+      VALUES ?item { ${batch.map((q) => `wd:${q}`).join(" ")} }
+      VALUES ?prop { ${WIKIDATA_IMAGE_PROPERTIES.map((p) => `wdt:${p}`).join(" ")} }
+      ?item ?prop ?file . }`;
+    try {
+      const data = await getJson<{
+        results: { bindings: { item: { value: string }; prop: { value: string }; file: { value: string } }[] };
+      }>(`https://query.wikidata.org/sparql?${new URLSearchParams({ query: sparql, format: "json" })}`);
+      const best = new Map<string, { rank: number; file: string }>();
+      for (const row of data.results.bindings) {
+        const qid = row.item.value.split("/").pop()!;
+        const rank = WIKIDATA_IMAGE_PROPERTIES.indexOf(row.prop.value.split("/").pop()!);
+        if (rank < 0 || (best.get(qid) && best.get(qid)!.rank <= rank)) continue;
+        best.set(qid, { rank, file: row.file.value });
+      }
+      for (const [qid, { file }] of best) {
+        // Special:FilePath redirige vers la miniature demandée ; les SVG sont rastérisés
+        images.set(qid, `${file.replace(/^http:/, "https:")}?width=500`);
+      }
+    } catch (e) {
+      // l'image est un bonus : on ne bloque jamais l'ouverture d'un paquet pour elle
+      if (!(e instanceof WikipediaUnavailableError)) throw e;
+    }
+  }
+  return images;
+}
+
+/** Images de remplacement pour des pages déjà connues (voir scripts/backfill-images.ts). */
+export async function imagesForPages(pageIds: number[]): Promise<Map<number, string>> {
+  const found = new Map<number, string>();
+  for (let i = 0; i < pageIds.length; i += 50) {
+    const data = await getJson<{ query?: { pages?: Record<string, Page> } }>(
+      query({
+        prop: "pageimages|pageprops",
+        ppprop: "wikibase_item",
+        piprop: "thumbnail",
+        pithumbsize: "500",
+        pageids: pageIds.slice(i, i + 50).join("|"),
+      }),
+    );
+    const pages = Object.values(data.query?.pages ?? {}).filter((p) => p.pageid);
+    for (const p of pages) if (p.thumbnail) found.set(p.pageid, p.thumbnail.source);
+    const without = pages.filter((p) => !p.thumbnail && p.pageprops?.wikibase_item);
+    const fallback = await foreignImages(
+      without.map((p) => ({ pageId: p.pageid, qid: p.pageprops!.wikibase_item! })),
+    );
+    fallback.forEach((url, id) => found.set(id, url));
+  }
   return found;
 }
 

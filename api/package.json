@@ -14,7 +14,8 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "catalog:import": "tsx scripts/import-catalog.ts"
+    "catalog:import": "tsx scripts/import-catalog.ts",
+    "images:backfill": "tsx scripts/backfill-images.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
