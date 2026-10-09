@@ -283,6 +283,10 @@ export type CollectionResponse = {
   rarities: Rarity[];
   query: string;
   favoritesOnly: boolean;
+  /** collection affichée : cartes Wikipédia ou anime / manga (null = toutes) */
+  source: PackKind | null;
+  /** cartes distinctes de chaque collection, pour les onglets */
+  sourceCounts: Record<PackKind, number>;
   tags: (TagDto & { count: number })[];
 };
 

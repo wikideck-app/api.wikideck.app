@@ -7,6 +7,7 @@ import {
   COLLECTION_SORTS,
   type CollectionResponse,
   type CollectionSort,
+  type PackKind,
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
 import { textFilter } from "@/lib/albums";
@@ -43,23 +44,31 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
     (params.get("rarity") ?? "").split(",").includes(r.code),
   ).map((r) => r.value);
 
+  // sans paramètre : toutes les cartes (les sélecteurs d'échange, de vente... en ont besoin)
+  const sourceParam = params.get("source");
+  const source: PackKind | null =
+    sourceParam === "anime" || sourceParam === "wikipedia" ? sourceParam : null;
+
   const favoritesOnly = params.get("fav") === "1";
   const where: Prisma.UserCardWhereInput = {
     userId: user.id,
     ...(favoritesOnly && { favorite: true }),
     // chaque mot doit se trouver dans le titre ou le sous-titre de l'article
-    ...((rarities.length || query) && {
+    ...((rarities.length || query || source) && {
       card: {
         ...(rarities.length && { rarity: { in: rarities } }),
         ...(query && { AND: textFilter(query) }),
+        ...(source && { source: source === "anime" ? "ANILIST" : "WIKIPEDIA" }),
       },
     }),
     ...(tag && { tags: { some: { id: tag, userId: user.id } } }),
   };
 
   const pageSize = COLLECTION_PAGE_SIZE;
-  const [total, tags] = await Promise.all([
+  const [total, wikipediaCount, animeCount, tags] = await Promise.all([
     prisma.userCard.count({ where }),
+    prisma.userCard.count({ where: { userId: user.id, card: { source: "WIKIPEDIA" } } }),
+    prisma.userCard.count({ where: { userId: user.id, card: { source: "ANILIST" } } }),
     prisma.tag.findMany({
       where: { userId: user.id },
       orderBy: { name: "asc" },
@@ -132,6 +141,8 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
     tag,
     rarities,
     query,
+    source,
+    sourceCounts: { wikipedia: wikipediaCount, anime: animeCount },
     tags: tags.map((t) => ({ ...toTagDto(t), count: t._count.userCards })),
   } satisfies CollectionResponse);
 });

@@ -54,6 +54,8 @@ export const GET = withRateLimit<Ctx>(
       favoritesOnly: false,
       rarities: [],
       query: q,
+      source: null,
+      sourceCounts: { wikipedia: 0, anime: 0 },
       tags: [],
     } satisfies CollectionResponse);
   },

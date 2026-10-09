@@ -19,7 +19,7 @@ export const ANILIST_ID_OFFSET = 2_000_000_000;
 const PER_PAGE = 50;
 const MAX_RANK = 5000;
 const PAGE_TTL_SEC = 24 * 60 * 60;
-const MIN_GAP_MS = 2300; // l'API est limitée à 30 requêtes par minute
+const MIN_GAP_MS = 2300; // l'API est limitée à 30 requêtes par minute (90 en temps normal)
 const DEFAULT_IMAGE = /default\.(jpg|png)$/;
 
 export class AnilistUnavailableError extends Error {
@@ -52,18 +52,66 @@ function pickBand() {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// une seule requête à la fois, espacées : on reste sous la limite de débit d'AniList
-let chain: Promise<unknown> = Promise.resolve();
+// après un 429, AniList bloque une minute (Retry-After) : on s'arrête, partout, jusque-là
+const BLOCK_KEY = "anilist:blocked";
+let blockedUntil = 0;
+
+function block(seconds: number) {
+  const ms = Math.max(1, seconds) * 1000;
+  blockedUntil = Math.max(blockedUntil, Date.now() + ms);
+  void redis.set(BLOCK_KEY, "1", "PX", ms).catch(() => {});
+}
+
+async function isBlocked() {
+  if (Date.now() < blockedUntil) return true;
+  try {
+    const ttl = await redis.pttl(BLOCK_KEY);
+    if (ttl > 0) {
+      blockedUntil = Date.now() + ttl;
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+// une seule requête à la fois, espacées : on reste sous la limite de débit d'AniList. Un tirage de
+// paquet (priorité 1) passe toujours avant le remplissage du cache (priorité 0).
+type Job = { priority: number; run: () => Promise<void> };
+const queue: Job[] = [];
+let working = false;
 let lastCall = 0;
-function throttled<T>(fn: () => Promise<T>): Promise<T> {
-  const run = chain.then(async () => {
-    const gap = lastCall + MIN_GAP_MS - Date.now();
-    if (gap > 0) await wait(gap);
-    lastCall = Date.now();
-    return fn();
+
+async function drain() {
+  if (working) return;
+  working = true;
+  try {
+    while (queue.length) {
+      queue.sort((a, b) => b.priority - a.priority);
+      const job = queue.shift()!;
+      const gap = lastCall + MIN_GAP_MS - Date.now();
+      if (gap > 0) await wait(gap);
+      lastCall = Date.now();
+      await job.run();
+    }
+  } finally {
+    working = false;
+  }
+}
+
+function throttled<T>(fn: () => Promise<T>, priority: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    queue.push({
+      priority,
+      run: async () => {
+        try {
+          resolve(await fn());
+        } catch (e) {
+          reject(e);
+        }
+      },
+    });
+    void drain();
   });
-  chain = run.catch(() => undefined);
-  return run;
 }
 
 const QUERY = `query ($page: Int) {
@@ -114,19 +162,29 @@ export function cleanDescription(raw: string | null, series: string | null): str
   return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 200))}…`;
 }
 
-async function fetchPage(page: number): Promise<AnimeChar[]> {
+async function fetchPage(page: number, priority: number): Promise<AnimeChar[]> {
+  if (await isBlocked()) throw new AnilistUnavailableError("limite de débit atteinte");
   let lastError = "";
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const res = await throttled(() =>
-        fetch(ENDPOINT, {
-          method: "POST",
-          headers: HEADERS,
-          body: JSON.stringify({ query: QUERY, variables: { page } }),
-          cache: "no-store",
-          signal: AbortSignal.timeout(15_000),
-        }),
+      const res = await throttled(
+        () =>
+          fetch(ENDPOINT, {
+            method: "POST",
+            headers: HEADERS,
+            body: JSON.stringify({ query: QUERY, variables: { page } }),
+            cache: "no-store",
+            signal: AbortSignal.timeout(15_000),
+          }),
+        priority,
       );
+      if (res.status === 429) {
+        block(Number(res.headers.get("retry-after")) || 60);
+        throw new AnilistUnavailableError("HTTP 429");
+      }
+      // presque plus de requêtes autorisées dans la minute : on laisse souffler
+      const remaining = Number(res.headers.get("x-ratelimit-remaining"));
+      if (res.headers.has("x-ratelimit-remaining") && remaining <= 2) block(20);
       if (res.ok) {
         const json = (await res.json()) as { data?: { Page: { characters: RawCharacter[] } } };
         const rows = json.data?.Page.characters ?? [];
@@ -153,10 +211,10 @@ async function fetchPage(page: number): Promise<AnimeChar[]> {
         });
       }
       lastError = `HTTP ${res.status}`;
-      if (res.status !== 429 && res.status < 500) break;
-      const retryAfter = Number(res.headers.get("retry-after"));
-      await wait(Math.min(15_000, retryAfter > 0 ? retryAfter * 1000 : 3000 * (attempt + 1)));
+      if (res.status < 500) break;
+      await wait(1500 * (attempt + 1));
     } catch (e) {
+      if (e instanceof AnilistUnavailableError) throw e;
       lastError = e instanceof Error ? e.message : "réseau";
       await wait(1500 * (attempt + 1));
     }
@@ -170,12 +228,17 @@ const inFlight = new Map<number, Promise<AnimeChar[]>>();
 async function getPage(page: number): Promise<AnimeChar[]> {
   try {
     const cached = await redis.get(pageKey(page));
-    if (cached) return JSON.parse(cached) as AnimeChar[];
+    if (cached) {
+      const chars = JSON.parse(cached) as AnimeChar[];
+      remember(page, chars);
+      return chars;
+    }
   } catch {}
   let pending = inFlight.get(page);
   if (!pending) {
-    pending = fetchPage(page)
+    pending = fetchPage(page, 1)
       .then(async (chars) => {
+        remember(page, chars);
         await redis.set(pageKey(page), JSON.stringify(chars), "EX", PAGE_TTL_SEC).catch(() => {});
         return chars;
       })
@@ -185,14 +248,30 @@ async function getPage(page: number): Promise<AnimeChar[]> {
   return pending;
 }
 
-// pages déjà en cache dans une tranche : repli quand AniList ne répond pas
+// copie en mémoire des pages lues : un tirage ne fait alors plus aucun aller-retour réseau
+const MEMORY_TTL_MS = 6 * 60 * 60 * 1000;
+const memory = new Map<number, { chars: AnimeChar[]; at: number }>();
+const remember = (page: number, chars: AnimeChar[]) => memory.set(page, { chars, at: Date.now() });
+
+// page déjà en cache (mémoire, puis Redis) dans une tranche de rangs, au hasard
 async function cachedPageIn(from: number, to: number): Promise<AnimeChar[] | null> {
   const pages: number[] = [];
   for (let p = Math.ceil(from / PER_PAGE); p <= Math.ceil(to / PER_PAGE); p++) pages.push(p);
+  const fresh = (p: number) => {
+    const m = memory.get(p);
+    return m && Date.now() - m.at < MEMORY_TTL_MS ? m.chars : null;
+  };
+  const inMemory = pages.filter((p) => fresh(p));
+  if (inMemory.length) return fresh(inMemory[randomInt(inMemory.length)]);
   try {
     const raws = await redis.mget(pages.map(pageKey));
-    const hits = raws.filter((r): r is string => r !== null);
-    return hits.length ? (JSON.parse(hits[randomInt(hits.length)]) as AnimeChar[]) : null;
+    const hits: number[] = [];
+    raws.forEach((raw, i) => {
+      if (raw === null) return;
+      remember(pages[i], JSON.parse(raw) as AnimeChar[]);
+      hits.push(pages[i]);
+    });
+    return hits.length ? fresh(hits[randomInt(hits.length)]) : null;
   } catch {
     return null;
   }
@@ -218,13 +297,15 @@ export async function drawAnimeCards(count: number): Promise<WikiCard[]> {
   for (let guard = 0; picked.size < count && guard < count * 10; guard++) {
     const band = pickBand();
     const rank = band.from + randomInt(band.to - band.from + 1);
-    let chars: AnimeChar[] | null = null;
-    try {
-      chars = await getPage(Math.ceil(rank / PER_PAGE));
-    } catch (e) {
-      if (!(e instanceof AnilistUnavailableError)) throw e;
-      failure = e;
-      chars = await cachedPageIn(band.from, band.to);
+    // d'abord une page déjà en cache dans la tranche : aucune attente réseau
+    let chars = await cachedPageIn(band.from, band.to);
+    if (!chars) {
+      try {
+        chars = await getPage(Math.ceil(rank / PER_PAGE));
+      } catch (e) {
+        if (!(e instanceof AnilistUnavailableError)) throw e;
+        failure = e;
+      }
     }
     if (!chars) continue;
     // un rang peut manquer (œuvre pour adultes, image par défaut) : on prend un autre personnage de la page
@@ -254,7 +335,13 @@ export function warmAnimePages() {
         const j = randomInt(i + 1);
         [missing[i], missing[j]] = [missing[j], missing[i]];
       }
-      for (const page of missing.slice(0, 25)) await getPage(page);
+      for (const page of missing.slice(0, 25)) {
+        if (await isBlocked()) break;
+        if (await redis.exists(pageKey(page))) continue;
+        const chars = await fetchPage(page, 0);
+        remember(page, chars);
+        await redis.set(pageKey(page), JSON.stringify(chars), "EX", PAGE_TTL_SEC).catch(() => {});
+      }
     } catch {
       /* le tirage retombe sur ce qui est déjà en cache */
     }
