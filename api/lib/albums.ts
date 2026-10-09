@@ -23,12 +23,18 @@ export const albumOf = (userId: string, id: string) =>
   prisma.album.findFirst({ where: { id, userId } });
 
 // ---- arbre des albums : au plus ALBUM_MAX_PER_USER lignes, on le charge en entier ----
-export type AlbumNode = { id: string; name: string; parentId: string | null; updatedAt: Date };
+export type AlbumNode = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  onProfile: boolean;
+  updatedAt: Date;
+};
 
 export const loadTree = (userId: string): Promise<AlbumNode[]> =>
   prisma.album.findMany({
     where: { userId },
-    select: { id: true, name: true, parentId: true, updatedAt: true },
+    select: { id: true, name: true, parentId: true, onProfile: true, updatedAt: true },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -100,6 +106,7 @@ export async function summariesOf(
         id,
         name: node.name,
         parentId: node.parentId,
+        onProfile: node.onProfile,
         cards: counts.get(id) ?? 0,
         subAlbums: subtreeIds(tree, id).length - 1,
         top: withTop ? await highlightsOf(userId, subtreeIds(tree, id)) : [],

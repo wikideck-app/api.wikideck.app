@@ -1,6 +1,7 @@
-import { FEATURED_MAX, RARITIES, type ProfileDto } from "@wikideck/shared";
+import { FEATURED_MAX, PROFILE_ALBUMS_MAX, RARITIES, type ProfileDto } from "@wikideck/shared";
 import { ACHIEVEMENTS } from "@wikideck/shared";
 import type { Rarity } from "@/generated/prisma/client";
+import { loadTree, summariesOf } from "@/lib/albums";
 import { toCardDto } from "@/lib/cards";
 import { rarityCounts } from "@/lib/catalog";
 import { prisma } from "@/lib/prisma";
@@ -69,6 +70,7 @@ export const GET = withRateLimit<Ctx>(
       featuredAuto: false,
       wishlist: [],
       achievements: [],
+      albums: [],
     };
     if (!visible) return Response.json(dto);
 
@@ -142,6 +144,18 @@ export const GET = withRateLimit<Ctx>(
       .map((r) => ({ ...toCardDto(r.card), quantity: r.quantity }));
     dto.featuredAuto = player.featuredCardIds.length === 0;
     dto.wishlist = wished.map((w) => toCardDto(w.card));
+    const tree = await loadTree(id);
+    const shown = await prisma.album.findMany({
+      where: { userId: id, onProfile: true },
+      select: { id: true },
+      orderBy: { updatedAt: "desc" },
+      take: PROFILE_ALBUMS_MAX,
+    });
+    dto.albums = await summariesOf(
+      id,
+      tree,
+      shown.map((n) => n.id),
+    );
     dto.achievements = unlocked
       .map((u) => u.key)
       .filter((k) => ACHIEVEMENTS.some((a) => a.key === k));

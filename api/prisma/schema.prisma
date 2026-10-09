@@ -307,6 +307,7 @@ model Album {
   userId    String   @db.Uuid
   name      String
   parentId  String?  @db.Uuid
+  onProfile Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

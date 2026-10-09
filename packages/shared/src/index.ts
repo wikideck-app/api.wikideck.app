@@ -1184,7 +1184,11 @@ export type ProfileDto = {
   featuredAuto: boolean;
   wishlist: CardDto[];
   achievements: string[];
+  /** albums que le joueur a choisi d'afficher (au plus PROFILE_ALBUMS_MAX) */
+  albums: AlbumSummary[];
 };
+
+export const PROFILE_ALBUMS_MAX = 6;
 
 export type BattlePuzzle = { start: string; target: string };
 
@@ -1509,6 +1513,7 @@ export type AlbumSummary = {
   name: string;
   /** null pour un album de premier niveau */
   parentId: string | null;
+  onProfile?: boolean;
   /** cartes distinctes de l'album et de tous ses sous-albums */
   cards: number;
   subAlbums: number;
@@ -1520,7 +1525,7 @@ export type AlbumSummary = {
 export type AlbumsResponse = { albums: AlbumSummary[]; max: number };
 
 export type AlbumResponse = {
-  album: { id: string; name: string; parentId: string | null; createdAt: string };
+  album: { id: string; name: string; parentId: string | null; onProfile: boolean; createdAt: string };
   /** du premier niveau jusqu'au parent direct */
   trail: { id: string; name: string }[];
   children: AlbumSummary[];

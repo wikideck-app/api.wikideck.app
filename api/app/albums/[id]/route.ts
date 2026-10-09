@@ -1,4 +1,4 @@
-import { ALBUM_MAX_DEPTH, RARITIES, type AlbumResponse, type Rarity } from "@wikideck/shared";
+import { ALBUM_MAX_DEPTH, PROFILE_ALBUMS_MAX, RARITIES, type AlbumResponse, type Rarity } from "@wikideck/shared";
 import { Prisma } from "@/generated/prisma/client";
 import {
   BEST_FIRST,
@@ -88,6 +88,7 @@ export const GET = withRateLimit<Ctx>(
         id: album.id,
         name: album.name,
         parentId: album.parentId,
+        onProfile: album.onProfile,
         createdAt: album.createdAt.toISOString(),
       },
       trail: trailOf(tree, id),
@@ -121,7 +122,16 @@ export const PATCH = withRateLimit<Ctx>(
     const album = isUuid(id) ? await albumOf(user.id, id) : null;
     if (!album) return Response.json({ error: "not_found" }, { status: 404 });
     const body = await readJson(request);
-    const data: { name?: string; parentId?: string | null } = {};
+    const data: { name?: string; parentId?: string | null; onProfile?: boolean } = {};
+    if (body?.onProfile !== undefined) {
+      if (typeof body.onProfile !== "boolean") return Response.json({ error: "invalid" }, { status: 400 });
+      if (body.onProfile && !album.onProfile) {
+        const shown = await prisma.album.count({ where: { userId: user.id, onProfile: true } });
+        if (shown >= PROFILE_ALBUMS_MAX)
+          return Response.json({ error: "profile_albums_full", max: PROFILE_ALBUMS_MAX }, { status: 409 });
+      }
+      data.onProfile = body.onProfile;
+    }
     if (body?.name !== undefined) {
       const name = parseAlbumName(body.name);
       if (!name) return Response.json({ error: "invalid_name" }, { status: 400 });
@@ -146,7 +156,12 @@ export const PATCH = withRateLimit<Ctx>(
     if (Object.keys(data).length === 0) return Response.json({ error: "invalid" }, { status: 400 });
     try {
       const updated = await prisma.album.update({ where: { id }, data });
-      return Response.json({ id, name: updated.name, parentId: updated.parentId });
+      return Response.json({
+        id,
+        name: updated.name,
+        parentId: updated.parentId,
+        onProfile: updated.onProfile,
+      });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
         return Response.json({ error: "album_exists" }, { status: 409 });

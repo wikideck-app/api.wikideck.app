@@ -1,0 +1,1 @@
+ALTER TABLE "Album" ADD COLUMN "onProfile" BOOLEAN NOT NULL DEFAULT false;
