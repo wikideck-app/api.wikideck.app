@@ -10,4 +10,5 @@ export const toCardDto = (c: Card): CardDto => ({
   url: c.url,
   rarity: c.rarity,
   views: c.views,
+  source: c.source,
 });

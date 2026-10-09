@@ -15,6 +15,8 @@ export type WikiCard = {
   length: number;
   languages: number;
   rarity: Rarity;
+  /** absent = Wikipédia ; renseigné pour les personnages AniList */
+  source?: "WIKIPEDIA" | "ANILIST";
 };
 
 export class WikipediaUnavailableError extends Error {

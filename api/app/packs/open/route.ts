@@ -16,6 +16,7 @@ import { sessionUser } from "@/lib/session";
 import { takeFromPool } from "@/lib/card-pool";
 import { acquireOpenSlot, releaseOpenSlot } from "@/lib/load";
 import { godpackEntries, legendaryEntry } from "@/lib/catalog";
+import { AnilistUnavailableError, drawAnimeCards } from "@/lib/anilist";
 import { cardsFromIds, drawRandomCards, type WikiCard } from "@/lib/wikipedia";
 import { randomInt, randomUUID } from "node:crypto";
 import { existsSync, unlinkSync } from "node:fs";
@@ -35,13 +36,21 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
   const slot = randomUUID();
   let slotHeld = false;
   try {
-    const wantBoost = (await readJson(request))?.boost === true;
+    const body = await readJson(request);
+    // paquets anime / manga : réserve séparée, sans booster de chance ni God Pack
+    const anime = body?.kind === "anime";
+    const wantBoost = !anime && body?.boost === true;
     if (wantBoost && user.dropBoosts < 1)
       return Response.json({ error: "no_boost" }, { status: 409 });
 
-    const state = refill(user);
+    const wikiState = refill(user);
+    const animeState = refill({ packs: user.animePacks, packsRefilledAt: user.animePacksRefilledAt });
+    const state = anime ? animeState : wikiState;
     if (state.packs < 1)
-      return Response.json({ error: "no_packs", ...status(state) }, { status: 403 });
+      return Response.json(
+        { error: "no_packs", ...status(wikiState), anime: status(animeState) },
+        { status: 403 },
+      );
 
     if (!(await acquireOpenSlot(slot))) {
       return Response.json(
@@ -54,7 +63,7 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     let drawn: WikiCard[] = [];
     let godpack = false;
     // godpack : si le tirage spécial échoue on retombe sur un paquet normal
-    if (randomInt(1_000_000) < GODPACK_RATE * 1_000_000) {
+    if (!anime && randomInt(1_000_000) < GODPACK_RATE * 1_000_000) {
       try {
         const entries = await godpackEntries(PACK_SIZE);
         if (entries) drawn = await cardsFromIds(entries);
@@ -62,8 +71,16 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
       } catch {}
       if (!godpack) drawn = [];
     }
-    if (!godpack) drawn = await takeFromPool(PACK_SIZE);
-    if (drawn.length < PACK_SIZE) {
+    if (anime) {
+      try {
+        drawn = await drawAnimeCards(PACK_SIZE);
+      } catch (e) {
+        if (e instanceof AnilistUnavailableError)
+          return Response.json({ error: "anilist_unavailable" }, { status: 502 });
+        throw e;
+      }
+    } else if (!godpack) drawn = await takeFromPool(PACK_SIZE);
+    if (!anime && drawn.length < PACK_SIZE) {
       const known = new Set(drawn.map((c) => c.pageId));
       const extra = await drawRandomCards(PACK_SIZE - drawn.length);
       drawn.push(...extra.filter((c) => !known.has(c.pageId)));
@@ -91,7 +108,7 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     // une légendaire et une mythique dans le prochain paquet (pour tester les animations)
     const forcedMythic = new Set<number>();
     const forceFile = join(process.cwd(), ".dev-force-pack");
-    if (process.env.NODE_ENV !== "production" && !godpack && existsSync(forceFile)) {
+    if (process.env.NODE_ENV !== "production" && !godpack && !anime && existsSync(forceFile)) {
       unlinkSync(forceFile);
       const picks: WikiCard[] = [];
       for (let i = 0; i < 20 && picks.length < 2; i++) {
@@ -112,10 +129,13 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
       packs: state.packs - 1,
       packsRefilledAt: state.packs >= PACK_MAX ? new Date() : state.packsRefilledAt,
     };
+    const userData = anime
+      ? { animePacks: next.packs, animePacksRefilledAt: next.packsRefilledAt }
+      : next;
 
     const openingId = randomUUID();
     const cards = await prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: user.id }, data: next });
+      await tx.user.update({ where: { id: user.id }, data: userData });
       if (boosted) {
         const used = await tx.user.updateMany({
           where: { id: user.id, dropBoosts: { gt: 0 } },
@@ -149,6 +169,7 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
               length: card.length,
               languages: card.languages,
               rarity: "MYTHIC",
+              source: card.source,
               baseCardId: card.id,
             },
           });
@@ -174,7 +195,8 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
 
     checkAchievements(user.id);
     return Response.json({
-      ...status(next),
+      ...status(anime ? wikiState : next),
+      anime: status(anime ? next : animeState),
       boosts: user.dropBoosts - (boosted ? 1 : 0),
       cards,
       ...(godpack && { godpack }),

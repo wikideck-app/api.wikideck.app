@@ -128,13 +128,22 @@ export type CardDto = {
   url: string;
   rarity: Rarity;
   views: number;
+  /** origine de la carte (absent = Wikipédia, pour les anciens clients) */
+  source?: CardSource;
 };
+
+export type CardSource = "WIKIPEDIA" | "ANILIST";
+export type PackKind = "wikipedia" | "anime";
+
+export type PackKindStatus = { packs: number; max: number; nextInMs: number | null };
 
 export type PackStatus = {
   packs: number;
   max: number;
   nextInMs: number | null;
   boosts?: number;
+  /** réserve séparée de paquets anime / manga */
+  anime?: PackKindStatus;
 };
 
 export type OpenPackResponse = PackStatus & {

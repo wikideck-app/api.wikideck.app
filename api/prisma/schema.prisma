@@ -18,6 +18,9 @@ model User {
 
   packs           Int        @default(3)
   packsRefilledAt DateTime   @default(now())
+  // réserve séparée de paquets anime / manga (personnages AniList)
+  animePacks          Int        @default(10)
+  animePacksRefilledAt DateTime  @default(now())
   cards           UserCard[]
   tags            Tag[]
   importedCount   Int        @default(0)
@@ -72,6 +75,11 @@ enum StaffRole {
   ADMIN
 }
 
+enum CardSource {
+  WIKIPEDIA
+  ANILIST
+}
+
 enum Rarity {
   COMMON
   UNCOMMON
@@ -83,7 +91,9 @@ enum Rarity {
 }
 
 model Card {
-  id          String   @id @default(uuid(7)) @db.Uuid
+  id          String     @id @default(uuid(7)) @db.Uuid
+  // WIKIPEDIA : pageId = identifiant de la page ; ANILIST : 2 000 000 000 + identifiant du personnage
+  source      CardSource @default(WIKIPEDIA)
   pageId      Int      @unique
   title       String
   description String?
