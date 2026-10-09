@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { REFERRAL_COOKIE, applyReferral } from "@/lib/referral";
 import { checkNewAccount, registerDevice } from "@/lib/trust";
 import {
   SESSION_COOKIE,
@@ -73,8 +74,13 @@ export const GET = withRateLimit(
     // anti-doublons : si ça plante on laisse quand même se connecter
     const deviceId = store.get(DEVICE_COOKIE)?.value ?? randomUUID();
     store.set(DEVICE_COOKIE, deviceId, cookieOptions(DEVICE_TTL));
+    const referralCode = store.get(REFERRAL_COOKIE)?.value;
+    store.delete(REFERRAL_COOKIE);
     try {
-      if (user.createdAt.getTime() > Date.now() - 60_000) await checkNewAccount(user);
+      const isNew = user.createdAt.getTime() > Date.now() - 60_000;
+      if (isNew) await checkNewAccount(user);
+      // avant d'enregistrer le navigateur du filleul : on compare avec celui du parrain
+      if (isNew && referralCode) await applyReferral(user, referralCode, deviceId);
       await registerDevice(user.id, deviceId);
     } catch {}
 

@@ -107,6 +107,12 @@ export const BOOST_MYTHIC_RATE = 0.25;
 
 export const PACK_MAX = 10;
 export const PACK_SIZE = 5;
+
+// parrainage : paquets offerts au parrain et au filleul, et nombre de filleuls récompensés par parrain
+export const REFERRAL_REWARD_PACKS = 3;
+export const REFERRAL_MAX = 20;
+export const REFERRAL_CODE_PATTERN = /^[a-z0-9]{8}$/;
+export type ReferralInfo = { code: string; referrals: number; max: number; reward: number };
 export const API_VERSION = 1;
 // 0,05 % par paquet
 export const GODPACK_RATE = 0.0005;

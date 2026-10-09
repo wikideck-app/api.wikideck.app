@@ -54,6 +54,10 @@ model User {
   banReason           String?
   trustOverride       String?
   alertsReviewedAt    DateTime?
+  referralCode        String?           @unique
+  referredById        String?           @db.Uuid
+  referredBy          User?             @relation("Referral", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals           User[]            @relation("Referral")
   devices             Device[]
   abuseSignals        AbuseSignal[]
   reportsMade         MessageReport[]   @relation("ReportReporter")
