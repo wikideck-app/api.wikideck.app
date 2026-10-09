@@ -158,6 +158,7 @@ enum TradeStatus {
   DECLINED
   CANCELLED
   EXPIRED
+  COUNTERED
 }
 
 enum TradeSide {
@@ -170,6 +171,8 @@ model Trade {
   proposerId  String      @db.Uuid
   recipientId String      @db.Uuid
   status      TradeStatus @default(PENDING)
+  /** proposition d'origine, quand celle-ci est une contre-proposition */
+  counterOfId String?     @db.Uuid
   createdAt   DateTime    @default(now())
   expiresAt   DateTime
   respondedAt DateTime?

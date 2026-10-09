@@ -39,6 +39,7 @@ export function toTradeDto(trade: TradeWithRelations, viewerId: string): TradeDt
   return {
     id: trade.id,
     status: trade.status as TradeStatus,
+    counter: trade.counterOfId !== null,
     role: isProposer ? "proposer" : "recipient",
     createdAt: trade.createdAt.toISOString(),
     expiresAt: trade.expiresAt.toISOString(),

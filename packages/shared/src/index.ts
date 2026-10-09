@@ -490,7 +490,8 @@ export type PullEntry = { cardId: string; title: string; url: string; rarity: Ra
 export type PullOpening = { id: string; openedAt: string; cards: PullEntry[] };
 export type PullsResponse = { openings: PullOpening[]; total: number };
 
-export type TradeStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED";
+export type TradeStatus =
+  "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "EXPIRED" | "COUNTERED";
 
 export const TRADE_MAX_CARDS = 10;
 export const TRADE_MAX_PENDING = 10;
@@ -510,6 +511,8 @@ export type TradeCard = CardDto & { quantity: number };
 export type TradeDto = {
   id: string;
   status: TradeStatus;
+  /** contre-proposition à une proposition reçue */
+  counter: boolean;
   role: "proposer" | "recipient";
   createdAt: string;
   expiresAt: string;
@@ -523,6 +526,7 @@ export type TradeBox = "incoming" | "outgoing" | "history";
 export type TradesResponse = { trades: TradeDto[] };
 
 export type TradeLine = { cardId: string; quantity: number };
+export type CounterTradeBody = { offer: TradeLine[]; request: TradeLine[] };
 export type CreateTradeBody = {
   recipientId: string;
   offer: TradeLine[];
