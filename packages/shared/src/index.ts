@@ -105,7 +105,7 @@ export const MYTHIC_RATE = 0.05;
 // avec un booster de chance : une légendaire garantie dans le paquet, et plus souvent mythique
 export const BOOST_MYTHIC_RATE = 0.25;
 
-export const PACK_MAX = 10;
+export const PACK_MAX = 15;
 export const PACK_SIZE = 5;
 
 // parrainage : paquets offerts au parrain et au filleul, et nombre de filleuls récompensés par parrain
