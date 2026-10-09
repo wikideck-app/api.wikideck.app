@@ -7,7 +7,6 @@ import { SUSPECT_RISK as ALERT_RISK, notifyStaff } from "@/lib/staff-alerts";
 export const SIGNAL_WEIGHTS = {
   SHARED_DEVICE: 25,
   YOUNG_DISCORD: 10,
-  BATTLE_PAIR: 15,
 } as const;
 export type SignalType = keyof typeof SIGNAL_WEIGHTS;
 

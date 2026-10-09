@@ -18,7 +18,7 @@ import {
 import { normalizeTitle } from "@/lib/battle";
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
-import { recordSignal, trustOf } from "@/lib/trust";
+import { trustOf } from "@/lib/trust";
 
 const PLAYER_TIMEOUT_MS = 90_000;
 const MAX_PATH = 300;
@@ -383,10 +383,9 @@ async function pairFarming(room: BattleRoom, winnerId: string) {
     const key = `bt:pair:${pair}:${day}`;
     const count = await redis.incr(key);
     if (count === 1) await redis.expire(key, 36 * 60 * 60);
-    if (count > PAIR_ROUNDS_PER_DAY) {
-      farming = true;
-      await recordSignal(winnerId, "BATTLE_PAIR", `pair:${p.id}:${day}`, { with: p.id });
-    }
+    // la manche n'est pas payée, mais le compte n'est pas signalé pour autant : les amis qui jouent
+    // souvent ensemble ne doivent pas devenir suspects
+    if (count > PAIR_ROUNDS_PER_DAY) farming = true;
   }
   return farming;
 }
@@ -403,10 +402,8 @@ async function payRewards(room: BattleRoom) {
       paid[userId] = -1;
       continue;
     }
-    const grant = await grantWithinCap(
-      userId,
-      level === "SUSPECT" ? Math.floor(amount / 2) : amount,
-    );
+    // un compte suspect garde ses gains : seuls les comptes restreints en sont privés
+    const grant = await grantWithinCap(userId, amount);
     if (grant > 0)
       await prisma.user.update({ where: { id: userId }, data: { wikibits: { increment: grant } } });
     paid[userId] = grant;
