@@ -1,12 +1,13 @@
 import { QUESTS, type QuestClaimResponse } from "@wikideck/shared";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { cardsFor } from "@/lib/quests";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-// l'identifiant contient « : » (title:scholar) : il arrive encodé dans l'adresse
+// l'identifiant contient « : » (title:scholar, anime:sensei) : il arrive encodé dans l'adresse
 export const POST = withRateLimit<Ctx>(
   "quests-claim",
   { limit: 30, windowSec: 60 },
@@ -17,9 +18,7 @@ export const POST = withRateLimit<Ctx>(
     const quest = QUESTS.find((q) => q.id === id);
     if (!quest) return Response.json({ error: "not_found" }, { status: 404 });
 
-    const cards = await prisma.userCard.count({
-      where: { userId: user.id, card: { source: "WIKIPEDIA" } },
-    });
+    const cards = await cardsFor(user.id, quest.kind);
     if (cards < quest.target) return Response.json({ error: "quest_not_ready" }, { status: 409 });
 
     try {

@@ -1210,8 +1210,10 @@ export type LiveEvent =
 
 export type ProfileStats = {
   cards: number;
-  /** cartes Wikipédia différentes possédées : détermine le titre du joueur */
+  /** cartes Wikipédia différentes possédées : détermine son titre Wikipédia */
   wikipediaCards: number;
+  /** personnages anime / manga différents possédés : détermine son titre anime */
+  animeCards: number;
   completion: number;
   copies: number;
   byRarity: Record<Rarity, number>;
@@ -1700,14 +1702,35 @@ export const PLAYER_TITLES = [
 ] as const;
 export type PlayerTitle = (typeof PLAYER_TITLES)[number];
 
-/** Titre actuel d'un joueur et prochain à atteindre (null au plus haut titre). */
-export function playerTitle(wikipediaCards: number): { title: PlayerTitle; next: PlayerTitle | null } {
+// titres de la collection anime / manga (personnages d'AniList et de Kitsu), mêmes seuils
+export const ANIME_TITLES = [
+  { min: 0, key: "newFan", emoji: "🍙" },
+  { min: 10, key: "viewer", emoji: "📺" },
+  { min: 50, key: "otakuBeginner", emoji: "🎬" },
+  { min: 100, key: "mangaReader", emoji: "📖" },
+  { min: 250, key: "fan", emoji: "⭐" },
+  { min: 500, key: "enthusiast", emoji: "🎭" },
+  { min: 1_000, key: "otaku", emoji: "🗾" },
+  { min: 2_500, key: "heroHunter", emoji: "⚔️" },
+  { min: 5_000, key: "sensei", emoji: "🌸" },
+  { min: 10_000, key: "otakuMaster", emoji: "👑" },
+  { min: 25_000, key: "animationLegend", emoji: "🌟" },
+  { min: 50_000, key: "animeGuardian", emoji: "🏯" },
+] as const;
+export type AnimeTitle = (typeof ANIME_TITLES)[number];
+
+type TitleOf<K extends string> = { min: number; key: K; emoji: string };
+function pickTitle<T extends TitleOf<string>>(list: readonly T[], cards: number) {
   let index = 0;
-  PLAYER_TITLES.forEach((t, i) => {
-    if (wikipediaCards >= t.min) index = i;
+  list.forEach((t, i) => {
+    if (cards >= t.min) index = i;
   });
-  return { title: PLAYER_TITLES[index], next: PLAYER_TITLES[index + 1] ?? null };
+  return { title: list[index], next: list[index + 1] ?? null };
 }
+
+/** Titre actuel d'un joueur et prochain à atteindre (null au plus haut titre). */
+export const playerTitle = (wikipediaCards: number) => pickTitle(PLAYER_TITLES, wikipediaCards);
+export const animeTitle = (animeCards: number) => pickTitle(ANIME_TITLES, animeCards);
 
 // ---- quêtes : objectifs récompensés en wikibits, à récupérer une seule fois
 // récompense de chaque titre (le premier titre, « Nouveau joueur », ne rapporte rien)
@@ -1725,25 +1748,51 @@ export const TITLE_QUEST_REWARDS: Record<Exclude<PlayerTitle["key"], "newPlayer"
   guardian: 500,
 };
 
+export const ANIME_TITLE_QUEST_REWARDS: Record<Exclude<AnimeTitle["key"], "newFan">, number> = {
+  viewer: 50,
+  otakuBeginner: 75,
+  mangaReader: 100,
+  fan: 150,
+  enthusiast: 175,
+  otaku: 200,
+  heroHunter: 250,
+  sensei: 275,
+  otakuMaster: 300,
+  animationLegend: 400,
+  animeGuardian: 500,
+};
+
+export type QuestKind = "wikipedia_cards" | "anime_cards";
+
 export type QuestDef = {
   /** identifiant stable : sert à retenir ce que le joueur a déjà récupéré */
   id: string;
-  kind: "wikipedia_cards";
-  /** nombre de cartes Wikipédia à posséder */
+  kind: QuestKind;
+  /** nombre de cartes différentes à posséder (Wikipédia, ou anime / manga selon le type) */
   target: number;
   reward: number;
-  titleKey: PlayerTitle["key"];
+  titleKey: string;
   emoji: string;
 };
 
-export const QUESTS: QuestDef[] = PLAYER_TITLES.filter((t) => t.min > 0).map((t) => ({
-  id: `title:${t.key}`,
-  kind: "wikipedia_cards" as const,
-  target: t.min,
-  reward: t.key === "newPlayer" ? 0 : TITLE_QUEST_REWARDS[t.key],
-  titleKey: t.key,
-  emoji: t.emoji,
-}));
+export const QUESTS: QuestDef[] = [
+  ...PLAYER_TITLES.filter((t) => t.min > 0).map((t) => ({
+    id: `title:${t.key}`,
+    kind: "wikipedia_cards" as const,
+    target: t.min,
+    reward: t.key === "newPlayer" ? 0 : TITLE_QUEST_REWARDS[t.key],
+    titleKey: t.key as string,
+    emoji: t.emoji as string,
+  })),
+  ...ANIME_TITLES.filter((t) => t.min > 0).map((t) => ({
+    id: `anime:${t.key}`,
+    kind: "anime_cards" as const,
+    target: t.min,
+    reward: t.key === "newFan" ? 0 : ANIME_TITLE_QUEST_REWARDS[t.key],
+    titleKey: t.key as string,
+    emoji: t.emoji as string,
+  })),
+];
 
 export type QuestDto = QuestDef & {
   progress: number;

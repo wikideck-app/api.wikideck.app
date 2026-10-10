@@ -87,6 +87,7 @@ export const GET = withRateLimit<Ctx>(
       counts,
       wished,
       wikipediaCards,
+      animeCards,
     ] = await Promise.all([
       prisma.$queryRaw<{ rarity: Rarity; n: bigint }[]>`
           SELECT c.rarity, count(*) AS n FROM "UserCard" uc JOIN "Card" c ON c.id = uc."cardId"
@@ -121,6 +122,7 @@ export const GET = withRateLimit<Ctx>(
         include: { card: true },
       }),
       prisma.userCard.count({ where: { userId: id, card: { source: "WIKIPEDIA" } } }),
+      prisma.userCard.count({ where: { userId: id, card: { source: { in: ["ANILIST", "KITSU"] } } } }),
     ]);
 
     const byRarity = Object.fromEntries(RARITY_ORDER.map((r) => [r, 0])) as Record<Rarity, number>;
@@ -131,6 +133,7 @@ export const GET = withRateLimit<Ctx>(
     dto.stats = {
       cards,
       wikipediaCards,
+      animeCards,
       completion: catalog ? Math.min(100, (cards / catalog) * 100) : 0,
       copies: copies._sum.quantity ?? 0,
       byRarity,
