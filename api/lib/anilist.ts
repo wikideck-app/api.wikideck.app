@@ -1,4 +1,5 @@
 import { randomInt } from "node:crypto";
+import { ANIME_DROP_BANDS } from "@wikideck/shared";
 import type { Rarity } from "@/generated/prisma/client";
 import { redis } from "@/lib/redis";
 import type { WikiCard } from "@/lib/wikipedia";
@@ -28,15 +29,9 @@ export class AnilistUnavailableError extends Error {
   }
 }
 
-// tranches de rang (1 = personnage le plus aimé) et probabilité de tirage de chaque rareté
-const BANDS: { rarity: Rarity; from: number; to: number; weight: number }[] = [
-  { rarity: "COMMON", from: 3501, to: 5000, weight: 0.42 },
-  { rarity: "UNCOMMON", from: 2001, to: 3500, weight: 0.25 },
-  { rarity: "RARE", from: 801, to: 2000, weight: 0.16 },
-  { rarity: "SUPER_RARE", from: 201, to: 800, weight: 0.1 },
-  { rarity: "ULTRA_RARE", from: 41, to: 200, weight: 0.05 },
-  { rarity: "LEGENDARY", from: 1, to: 40, weight: 0.02 },
-];
+// tranches de rang (1 = personnage le plus aimé) et probabilité de tirage de chaque rareté :
+// la table est partagée avec le site, qui l'affiche dans « Comment ça marche ? »
+const BANDS = ANIME_DROP_BANDS;
 
 const rarityOfRank = (rank: number) =>
   BANDS.find((b) => rank >= b.from && rank <= b.to)?.rarity ?? "COMMON";

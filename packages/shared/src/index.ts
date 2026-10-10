@@ -102,6 +102,16 @@ export const DROP_RARITIES = RARITIES.filter((r) => r.value !== "MYTHIC");
 
 // chance qu'une légendaire tirée soit mythique : 5 %
 export const MYTHIC_RATE = 0.05;
+
+// paquets anime / manga (AniList) : rang de popularité (1 = le plus aimé) et chance de tirage de chaque rareté
+export const ANIME_DROP_BANDS: { rarity: Rarity; from: number; to: number; weight: number }[] = [
+  { rarity: "COMMON", from: 3501, to: 5000, weight: 0.425 },
+  { rarity: "UNCOMMON", from: 2001, to: 3500, weight: 0.25 },
+  { rarity: "RARE", from: 801, to: 2000, weight: 0.16 },
+  { rarity: "SUPER_RARE", from: 201, to: 800, weight: 0.1 },
+  { rarity: "ULTRA_RARE", from: 41, to: 200, weight: 0.05 },
+  { rarity: "LEGENDARY", from: 1, to: 40, weight: 0.015 },
+];
 // avec un booster de chance : une légendaire garantie dans le paquet, et plus souvent mythique
 export const BOOST_MYTHIC_RATE = 0.25;
 
