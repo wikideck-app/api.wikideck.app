@@ -619,6 +619,8 @@ export type MarketResponse = {
   sort: MarketSort;
   rarities: Rarity[];
   query: string;
+  /** une seule des deux collections (null = toutes) */
+  source: PackKind | null;
   wikibits: number;
 };
 

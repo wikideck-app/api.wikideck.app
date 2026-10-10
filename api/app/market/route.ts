@@ -9,6 +9,7 @@ import {
   type AuctionDto,
   type MarketResponse,
   type MarketView,
+  type PackKind,
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
 import { lockedCards } from "@/lib/card-locks";
@@ -50,14 +51,19 @@ export const GET = withRateLimit("market-list", { limit: 90, windowSec: 60 }, as
     (params.get("rarity") ?? "").split(",").includes(r.code),
   ).map((r) => r.value);
 
+  const sourceParam = params.get("source");
+  const source: PackKind | null =
+    sourceParam === "anime" || sourceParam === "wikipedia" ? sourceParam : null;
+
   const where: Prisma.AuctionWhereInput = {
     ...(view === "all" && { status: "ACTIVE" }),
     ...(view === "selling" && { sellerId: user.id }),
     ...(view === "bidding" && { bids: { some: { bidderId: user.id } } }),
-    ...((rarities.length || query) && {
+    ...((rarities.length || query || source) && {
       card: {
         ...(rarities.length && { rarity: { in: rarities } }),
         ...(query && { title: { contains: query, mode: "insensitive" as const } }),
+        ...(source && { source: source === "anime" ? { in: ["ANILIST", "KITSU"] } : "WIKIPEDIA" }),
       },
     }),
   };
@@ -84,6 +90,7 @@ export const GET = withRateLimit("market-list", { limit: 90, windowSec: 60 }, as
     sort,
     rarities,
     query,
+    source,
     wikibits: user.wikibits,
   } satisfies MarketResponse);
 });
