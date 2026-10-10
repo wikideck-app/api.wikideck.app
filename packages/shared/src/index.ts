@@ -524,6 +524,7 @@ export const PULL_HISTORY_SIZE = 50;
 
 export type MeProfile = {
   username: string;
+  displayedTitle: string | null;
   discordName: string | null;
   avatarUrl: string | null;
   isPublic: boolean;
@@ -1228,6 +1229,8 @@ export const FEATURED_MAX = 6;
 
 export type ProfileDto = {
   player: PlayerSummary;
+  /** titre que le joueur a choisi d'afficher (identifiant, voir parseTitleId), null = automatique */
+  displayedTitle: string | null;
   createdAt: string;
   isSelf: boolean;
   relation: PlayerRelation;
@@ -1729,6 +1732,18 @@ function pickTitle<T extends TitleOf<string>>(list: readonly T[], cards: number)
 }
 
 /** Titre actuel d'un joueur et prochain à atteindre (null au plus haut titre). */
+/** Identifiant d'un titre choisi : « wikipedia:scholar », « anime:sensei ». */
+export function parseTitleId(
+  id: unknown,
+): { kind: "wikipedia" | "anime"; key: string; min: number; emoji: string } | null {
+  if (typeof id !== "string") return null;
+  const [kind, key] = id.split(":");
+  const list = kind === "wikipedia" ? PLAYER_TITLES : kind === "anime" ? ANIME_TITLES : null;
+  const found = list?.find((t) => t.key === key);
+  return list && found ? { kind: kind as "wikipedia" | "anime", key: found.key, min: found.min, emoji: found.emoji } : null;
+}
+export const titleId = (kind: "wikipedia" | "anime", key: string) => `${kind}:${key}`;
+
 export const playerTitle = (wikipediaCards: number) => pickTitle(PLAYER_TITLES, wikipediaCards);
 export const animeTitle = (animeCards: number) => pickTitle(ANIME_TITLES, animeCards);
 

@@ -22,6 +22,8 @@ model User {
   animePacks          Int        @default(10)
   // paquets bonus (parrainage) : ne bloquent pas la recharge, servent quand la réserve du type choisi est vide
   bonusPacks          Int        @default(0)
+  // titre affiché sur le profil (« wikipedia:scholar », « anime:sensei »), null = les plus hauts obtenus
+  displayedTitle      String?
   animePacksRefilledAt DateTime  @default(now())
   cards           UserCard[]
   tags            Tag[]

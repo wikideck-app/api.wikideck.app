@@ -1,4 +1,10 @@
-import { FEATURED_MAX, PROFILE_ALBUMS_MAX, RARITIES, type ProfileDto } from "@wikideck/shared";
+import {
+  FEATURED_MAX,
+  PROFILE_ALBUMS_MAX,
+  RARITIES,
+  parseTitleId,
+  type ProfileDto,
+} from "@wikideck/shared";
 import { ACHIEVEMENTS } from "@wikideck/shared";
 import type { Rarity } from "@/generated/prisma/client";
 import { loadTree, summariesOf } from "@/lib/albums";
@@ -52,6 +58,7 @@ export const GET = withRateLimit<Ctx>(
 
     const dto: ProfileDto = {
       player: toPlayer(player),
+      displayedTitle: null,
       createdAt: player.createdAt.toISOString(),
       isSelf,
       relation,
@@ -143,6 +150,10 @@ export const GET = withRateLimit<Ctx>(
       auctionsWon: won,
       friends,
     };
+    // titre choisi : retenu seulement s'il est toujours mérité (le joueur a pu perdre des cartes)
+    const chosen = parseTitleId(player.displayedTitle);
+    if (chosen && (chosen.kind === "anime" ? animeCards : wikipediaCards) >= chosen.min)
+      dto.displayedTitle = `${chosen.kind}:${chosen.key}`;
     dto.showcase = player.showcaseCard ? toCardDto(player.showcaseCard) : null;
     const order = new Map(player.featuredCardIds.map((cid, i) => [cid, i]));
     dto.featured = [...rarest]

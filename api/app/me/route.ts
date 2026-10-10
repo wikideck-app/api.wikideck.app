@@ -6,6 +6,8 @@ import {
   USERNAME_MIN,
   USERNAME_PATTERN,
   normalizeSettings,
+  parseTitleId,
+  titleId,
   type MeProfile,
 } from "@wikideck/shared";
 import { toCardDto } from "@/lib/cards";
@@ -13,6 +15,7 @@ import { checkAchievements } from "@/lib/achievements";
 import { leaveGuild } from "@/lib/guild";
 import { logStaff } from "@/lib/staff";
 import { prisma } from "@/lib/prisma";
+import { cardsFor } from "@/lib/quests";
 import { withRateLimit } from "@/lib/rate-limit";
 import { SESSION_COOKIE, cookieOptions, currentUser, destroySession, sessionUser } from "@/lib/session";
 import { isUuid, readJson } from "@/lib/tags";
@@ -26,6 +29,7 @@ async function profileOf(userId: string): Promise<MeProfile | null> {
   if (!user) return null;
   return {
     username: user.username,
+    displayedTitle: user.displayedTitle,
     discordName: user.discordName,
     avatarUrl: user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.${
@@ -56,6 +60,7 @@ export const PATCH = withRateLimit("me-update", { limit: 20, windowSec: 60 }, as
     isPublic?: boolean;
     showcaseCardId?: string | null;
     featuredCardIds?: string[];
+    displayedTitle?: string | null;
   } = {};
 
   if (body.username !== undefined) {
@@ -99,6 +104,19 @@ export const PATCH = withRateLimit("me-update", { limit: 20, windowSec: 60 }, as
     const owned = await prisma.userCard.count({ where: { userId: user.id, cardId: { in: ids } } });
     if (owned !== ids.length) return Response.json({ error: "not_owned" }, { status: 404 });
     data.featuredCardIds = ids;
+  }
+
+  if (body.displayedTitle !== undefined) {
+    if (body.displayedTitle === null) {
+      data.displayedTitle = null;
+    } else {
+      const title = parseTitleId(body.displayedTitle);
+      if (!title) return Response.json({ error: "invalid" }, { status: 400 });
+      // on ne peut afficher qu'un titre déjà obtenu
+      const cards = await cardsFor(user.id, title.kind === "anime" ? "anime_cards" : "wikipedia_cards");
+      if (cards < title.min) return Response.json({ error: "title_locked" }, { status: 409 });
+      data.displayedTitle = titleId(title.kind, title.key);
+    }
   }
 
   await prisma.user.update({ where: { id: user.id }, data });
