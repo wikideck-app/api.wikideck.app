@@ -35,6 +35,8 @@ model User {
   isPublic            Boolean           @default(false)
   showcaseCardId      String?           @db.Uuid
   featuredCardIds     String[]          @default([]) @db.Uuid
+  // true : aucune carte en vedette sur le profil (sinon, liste vide = les plus rares automatiquement)
+  featuredHidden      Boolean           @default(false)
   showcaseCard        Card?             @relation("Showcase", fields: [showcaseCardId], references: [id], onDelete: SetNull)
   pulls               Pull[]
   wikibits            Int               @default(500)

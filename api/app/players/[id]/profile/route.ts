@@ -78,6 +78,7 @@ export const GET = withRateLimit<Ctx>(
       showcase: null,
       featured: [],
       featuredAuto: false,
+      featuredHidden: false,
       wishlist: [],
       achievements: [],
       albums: [],
@@ -103,7 +104,9 @@ export const GET = withRateLimit<Ctx>(
           SELECT c.rarity, count(*) AS n FROM "UserCard" uc JOIN "Card" c ON c.id = uc."cardId"
           WHERE uc."userId" = ${id}::uuid GROUP BY c.rarity`,
       prisma.userCard.aggregate({ where: { userId: id }, _sum: { quantity: true } }),
-      player.featuredCardIds.length
+      player.featuredHidden
+        ? Promise.resolve([])
+        : player.featuredCardIds.length
         ? prisma.userCard.findMany({
             where: { userId: id, cardId: { in: player.featuredCardIds } },
             include: { card: true },
@@ -163,7 +166,8 @@ export const GET = withRateLimit<Ctx>(
     dto.featured = [...rarest]
       .sort((a, b) => (order.get(a.cardId) ?? 0) - (order.get(b.cardId) ?? 0))
       .map((r) => ({ ...toCardDto(r.card), quantity: r.quantity }));
-    dto.featuredAuto = player.featuredCardIds.length === 0;
+    dto.featuredHidden = player.featuredHidden;
+    dto.featuredAuto = !player.featuredHidden && player.featuredCardIds.length === 0;
     dto.wishlist = wished.map((w) => toCardDto(w.card));
     const tree = await loadTree(id);
     const shown = await prisma.album.findMany({

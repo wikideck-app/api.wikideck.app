@@ -1243,6 +1243,8 @@ export type ProfileDto = {
   showcase: CardDto | null;
   featured: (CardDto & { quantity: number })[];
   featuredAuto: boolean;
+  /** le joueur a choisi de n'afficher aucune carte en vedette */
+  featuredHidden: boolean;
   wishlist: CardDto[];
   achievements: string[];
   /** albums que le joueur a choisi d'afficher (au plus PROFILE_ALBUMS_MAX) */
@@ -1600,6 +1602,9 @@ export type AlbumsResponse = { albums: AlbumSummary[]; max: number };
 
 export type AlbumResponse = {
   album: { id: string; name: string; parentId: string | null; onProfile: boolean; createdAt: string };
+  /** true quand l'album appartient à un autre joueur (consultation seule) */
+  readOnly: boolean;
+  owner: PlayerSummary;
   /** du premier niveau jusqu'au parent direct */
   trail: { id: string; name: string }[];
   children: AlbumSummary[];

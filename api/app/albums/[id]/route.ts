@@ -23,6 +23,7 @@ import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
 import { isUuid, readJson } from "@/lib/tags";
+import { toPlayer } from "@/lib/trades";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -34,14 +35,34 @@ export const GET = withRateLimit<Ctx>(
     if (!user) return Response.json({ error: "unauthorized" }, { status: 401 });
     const { id } = await params;
     if (!isUuid(id)) return Response.json({ error: "not_found" }, { status: 404 });
-    const album = await albumOf(user.id, id);
-    if (!album) return Response.json({ error: "not_found" }, { status: 404 });
-    await pruneAlbums(user.id);
+    const found = await prisma.album.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+    if (!found) return Response.json({ error: "not_found" }, { status: 404 });
+    const album = found;
+    const ownerId = found.userId;
+    const readOnly = ownerId !== user.id;
+    if (readOnly) {
+      // un autre joueur : profil public, et album affiché sur le profil (ou rangé dans l'un d'eux)
+      if (!found.user.isPublic) return Response.json({ error: "not_found" }, { status: 404 });
+      const ownerTree = await prisma.album.findMany({
+        where: { userId: ownerId },
+        select: { id: true, parentId: true, onProfile: true },
+      });
+      const byId = new Map(ownerTree.map((n) => [n.id, n]));
+      let shown = false;
+      for (let n = byId.get(id); n && !shown; n = n.parentId ? byId.get(n.parentId) : undefined)
+        shown = n.onProfile;
+      if (!shown) return Response.json({ error: "not_found" }, { status: 404 });
+    } else {
+      await pruneAlbums(user.id);
+    }
 
     const sp = request.nextUrl.searchParams;
     const query = (sp.get("q") ?? "").trim().slice(0, 100);
     const rarities = rarityFilter(sp.get("rarity"));
-    const tree = await loadTree(user.id);
+    const tree = await loadTree(ownerId);
     const scope = sp.get("scope") === "all" ? "all" : "own";
     const family = subtreeIds(tree, id);
     // « own » : les cartes rangées dans cet album ; « all » : aussi celles de ses sous-albums
@@ -50,7 +71,7 @@ export const GET = withRateLimit<Ctx>(
     };
     const inFamily: Prisma.CardWhereInput = { albumCards: { some: { albumId: { in: family } } } };
     const where: Prisma.UserCardWhereInput = {
-      userId: user.id,
+      userId: ownerId,
       card: {
         AND: [
           inAlbum,
@@ -62,14 +83,14 @@ export const GET = withRateLimit<Ctx>(
 
     const childIds = tree.filter((n) => n.parentId === id).map((n) => n.id);
     const [count, total, byRarity, highlights, children] = await Promise.all([
-      prisma.userCard.count({ where: { userId: user.id, card: inFamily } }),
+      prisma.userCard.count({ where: { userId: ownerId, card: inFamily } }),
       prisma.userCard.count({ where }),
       prisma.userCard.findMany({
-        where: { userId: user.id, card: inAlbum },
+        where: { userId: ownerId, card: inAlbum },
         select: { card: { select: { rarity: true } } },
       }),
-      highlightsOf(user.id, family),
-      summariesOf(user.id, tree, childIds),
+      highlightsOf(ownerId, family),
+      summariesOf(ownerId, tree, childIds),
     ]);
     const totalPages = Math.max(1, Math.ceil(total / PAGE));
     const page = clampPage(sp.get("page"), totalPages);
@@ -91,13 +112,15 @@ export const GET = withRateLimit<Ctx>(
         onProfile: album.onProfile,
         createdAt: album.createdAt.toISOString(),
       },
+      readOnly,
+      owner: toPlayer(found.user),
       trail: trailOf(tree, id),
       children,
       depth: depthOf(tree, id),
       scope,
       count,
       highlights,
-      cards: rows.map((r) => toCollectionCard(r, true)),
+      cards: rows.map((r) => ({ ...toCollectionCard(r, true), ...(readOnly && { favorite: false }) })),
       total,
       page,
       pageSize: PAGE,

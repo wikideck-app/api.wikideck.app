@@ -61,6 +61,7 @@ export const PATCH = withRateLimit("me-update", { limit: 20, windowSec: 60 }, as
     isPublic?: boolean;
     showcaseCardId?: string | null;
     featuredCardIds?: string[];
+    featuredHidden?: boolean;
     displayedTitle?: string | null;
   } = {};
 
@@ -105,6 +106,16 @@ export const PATCH = withRateLimit("me-update", { limit: 20, windowSec: 60 }, as
     const owned = await prisma.userCard.count({ where: { userId: user.id, cardId: { in: ids } } });
     if (owned !== ids.length) return Response.json({ error: "not_owned" }, { status: 404 });
     data.featuredCardIds = ids;
+    // choisir des cartes réaffiche la section ; une liste vide laisse le choix à featuredMode
+    if (ids.length) data.featuredHidden = false;
+  }
+
+  // featuredMode : « auto » = les plus rares, « none » = aucune carte en vedette
+  if (body.featuredMode !== undefined) {
+    if (body.featuredMode !== "auto" && body.featuredMode !== "none")
+      return Response.json({ error: "invalid" }, { status: 400 });
+    data.featuredCardIds = [];
+    data.featuredHidden = body.featuredMode === "none";
   }
 
   if (body.displayedTitle !== undefined) {
