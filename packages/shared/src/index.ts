@@ -1386,6 +1386,20 @@ export type StaffMemberRow = {
   trust: TrustLevel;
 };
 
+export type StaffWishlistsResponse = {
+  wishlists: {
+    userId: string;
+    discordId: string;
+    discordName: string | null;
+    username: string;
+    /** nombre d'emplacements de sa liste d'envies */
+    max: number;
+    cards: CardDto[];
+  }[];
+  /** curseur pour la page suivante (`after`), null à la fin */
+  next: string | null;
+};
+
 export type StaffSyncResponse = {
   /** comme la liste des membres, sans le niveau de confiance (calcul trop coûteux pour un export) */
   users: Omit<StaffMemberRow, "trust">[];

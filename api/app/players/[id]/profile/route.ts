@@ -173,7 +173,7 @@ export const GET = withRateLimit<Ctx>(
     const shown = await prisma.album.findMany({
       where: { userId: id, onProfile: true },
       select: { id: true },
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ profileOrder: "asc" }, { updatedAt: "desc" }],
       take: PROFILE_ALBUMS_MAX,
     });
     dto.albums = await summariesOf(

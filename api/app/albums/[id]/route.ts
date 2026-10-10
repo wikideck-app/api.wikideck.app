@@ -145,7 +145,12 @@ export const PATCH = withRateLimit<Ctx>(
     const album = isUuid(id) ? await albumOf(user.id, id) : null;
     if (!album) return Response.json({ error: "not_found" }, { status: 404 });
     const body = await readJson(request);
-    const data: { name?: string; parentId?: string | null; onProfile?: boolean } = {};
+    const data: {
+      name?: string;
+      parentId?: string | null;
+      onProfile?: boolean;
+      profileOrder?: number;
+    } = {};
     if (body?.onProfile !== undefined) {
       if (typeof body.onProfile !== "boolean") return Response.json({ error: "invalid" }, { status: 400 });
       if (body.onProfile && !album.onProfile) {
@@ -154,6 +159,14 @@ export const PATCH = withRateLimit<Ctx>(
           return Response.json({ error: "profile_albums_full", max: PROFILE_ALBUMS_MAX }, { status: 409 });
       }
       data.onProfile = body.onProfile;
+      // un album qu'on affiche vient se placer en dernier parmi ceux du profil
+      if (body.onProfile && !album.onProfile) {
+        const last = await prisma.album.aggregate({
+          where: { userId: user.id, onProfile: true },
+          _max: { profileOrder: true },
+        });
+        data.profileOrder = (last._max.profileOrder ?? -1) + 1;
+      }
     }
     if (body?.name !== undefined) {
       const name = parseAlbumName(body.name);

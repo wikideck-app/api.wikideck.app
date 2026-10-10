@@ -342,6 +342,8 @@ model Album {
   name      String
   parentId  String?  @db.Uuid
   onProfile Boolean  @default(false)
+  // place de l'album parmi ceux affichés sur le profil (0, 1, 2…)
+  profileOrder Int   @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
