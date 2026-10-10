@@ -1229,6 +1229,8 @@ export const FEATURED_MAX = 6;
 
 export type ProfileDto = {
   player: PlayerSummary;
+  /** nombre d'emplacements de la liste d'envies du joueur (3 + ceux achetés) */
+  wishlistMax: number;
   /** titre que le joueur a choisi d'afficher (identifiant, voir parseTitleId), null = automatique */
   displayedTitle: string | null;
   createdAt: string;
@@ -1550,6 +1552,8 @@ export type PlayerRankingResponse = {
 };
 
 export const WISHLIST_MAX = 3;
+// emplacements supplémentaires achetables en boutique, au plus (plafond de la liste : WISHLIST_MAX + ceci)
+export const WISHLIST_EXTRA_MAX = 47;
 
 export type WishlistCard = CardDto & {
   quantity: number;
@@ -1631,6 +1635,7 @@ export const SHOP_KINDS = [
   "LUCK_BOOST",
   "DUPLICATE_SHIELD",
   "DUPLICATE_REDUCTION",
+  "WISHLIST_SLOT",
 ] as const;
 // réduction des doublons : chance de remplacer chaque carte déjà possédée (la protection les remplace toutes)
 export const DUPLICATE_REDUCTION_CHANCE = 0.5;

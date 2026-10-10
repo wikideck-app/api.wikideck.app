@@ -23,7 +23,10 @@ export const GET = withRateLimit("wishlist-get", { limit: 60, windowSec: 60 }, a
     quantity: quantity.get(i.cardId) ?? 0,
     addedAt: i.createdAt.toISOString(),
   }));
-  return Response.json({ cards, max: WISHLIST_MAX } satisfies WishlistResponse);
+  return Response.json({
+    cards,
+    max: WISHLIST_MAX + user.wishlistSlots,
+  } satisfies WishlistResponse);
 });
 
 export const POST = withRateLimit("wishlist-add", { limit: 60, windowSec: 60 }, async (request) => {
@@ -40,7 +43,10 @@ export const POST = withRateLimit("wishlist-add", { limit: 60, windowSec: 60 }, 
     select: { id: true },
   });
   if (!exists) {
-    if ((await prisma.wishlistItem.count({ where: { userId: user.id } })) >= WISHLIST_MAX)
+    if (
+      (await prisma.wishlistItem.count({ where: { userId: user.id } })) >=
+      WISHLIST_MAX + user.wishlistSlots
+    )
       return Response.json({ error: "wishlist_full" }, { status: 409 });
     await prisma.wishlistItem
       .create({ data: { userId: user.id, cardId } })

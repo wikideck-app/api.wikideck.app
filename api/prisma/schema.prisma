@@ -24,6 +24,8 @@ model User {
   bonusPacks          Int        @default(0)
   // titre affiché sur le profil (« wikipedia:scholar », « anime:sensei »), null = les plus hauts obtenus
   displayedTitle      String?
+  // emplacements de liste d'envies achetés en boutique (s'ajoutent à WISHLIST_MAX)
+  wishlistSlots       Int        @default(0)
   animePacksRefilledAt DateTime  @default(now())
   cards           UserCard[]
   tags            Tag[]
@@ -598,6 +600,7 @@ enum ShopItemKind {
   LUCK_BOOST
   DUPLICATE_SHIELD
   DUPLICATE_REDUCTION
+  WISHLIST_SLOT
 }
 
 // boutique : articles payés en wikibits, créés et modifiés par les administrateurs

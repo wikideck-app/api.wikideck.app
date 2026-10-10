@@ -1,0 +1,5 @@
+-- AlterEnum
+ALTER TYPE "ShopItemKind" ADD VALUE 'WISHLIST_SLOT';
+
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "wishlistSlots" INTEGER NOT NULL DEFAULT 0;

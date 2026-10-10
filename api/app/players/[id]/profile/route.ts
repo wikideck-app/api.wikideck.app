@@ -3,6 +3,7 @@ import {
   NO_TITLE,
   PROFILE_ALBUMS_MAX,
   RARITIES,
+  WISHLIST_MAX,
   parseTitleId,
   type ProfileDto,
 } from "@wikideck/shared";
@@ -60,6 +61,7 @@ export const GET = withRateLimit<Ctx>(
     const dto: ProfileDto = {
       player: toPlayer(player),
       displayedTitle: null,
+      wishlistMax: WISHLIST_MAX + player.wishlistSlots,
       createdAt: player.createdAt.toISOString(),
       isSelf,
       relation,
