@@ -19,7 +19,8 @@ export const GET = withRateLimit("staff-users", { limit: 120, windowSec: 60 }, a
     ...(q && {
       OR: [
         { username: { contains: q, mode: "insensitive" as const } },
-        { discordId: { equals: q } },
+        { discordId: { equals: q.replace(/^@/, "") } },
+        { discordName: { contains: q.replace(/^@/, ""), mode: "insensitive" as const } },
       ],
     }),
     ...(filter === "banned" && { bannedAt: { not: null } }),

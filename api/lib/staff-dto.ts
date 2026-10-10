@@ -11,6 +11,8 @@ export async function toMemberRow(
   return {
     id: user.id,
     username: user.username,
+    discordId: user.discordId,
+    discordName: user.discordName,
     avatarUrl: avatarOf(user),
     createdAt: user.createdAt.toISOString(),
     wikibits: user.wikibits,

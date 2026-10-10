@@ -1349,6 +1349,9 @@ export type StaffOverview = {
 export type StaffMemberRow = {
   id: string;
   username: string;
+  /** identifiant et nom d'utilisateur Discord, pour synchroniser avec un bot ou un serveur */
+  discordId: string;
+  discordName: string | null;
   avatarUrl: string | null;
   createdAt: string;
   wikibits: number;
@@ -1356,6 +1359,14 @@ export type StaffMemberRow = {
   staff: StaffRole | null;
   banned: boolean;
   trust: TrustLevel;
+};
+
+export type StaffSyncResponse = {
+  /** comme la liste des membres, sans le niveau de confiance (calcul trop coûteux pour un export) */
+  users: Omit<StaffMemberRow, "trust">[];
+  /** curseur pour la page suivante (`after`), null à la fin */
+  next: string | null;
+  total: number;
 };
 
 export type StaffAuditRow = {
