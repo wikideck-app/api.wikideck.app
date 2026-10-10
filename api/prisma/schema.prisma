@@ -20,6 +20,8 @@ model User {
   packsRefilledAt DateTime   @default(now())
   // réserve séparée de paquets anime / manga (personnages AniList)
   animePacks          Int        @default(10)
+  // paquets bonus (parrainage) : ne bloquent pas la recharge, servent quand la réserve du type choisi est vide
+  bonusPacks          Int        @default(0)
   animePacksRefilledAt DateTime  @default(now())
   cards           UserCard[]
   tags            Tag[]

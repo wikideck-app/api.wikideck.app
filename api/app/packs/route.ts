@@ -26,6 +26,7 @@ export const GET = withRateLimit("packs-status", { limit: 60, windowSec: 60 }, a
     ...status(state),
     boosts: user.dropBoosts,
     anime: status(anime),
+    bonus: user.bonusPacks,
     duplicateShield: user.dupShieldPacks,
     duplicateReductionUntil:
       user.dupReduceUntil && user.dupReduceUntil > new Date() ? user.dupReduceUntil.toISOString() : null,

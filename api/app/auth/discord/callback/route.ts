@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
+import { PACK_MAX } from "@wikideck/shared";
 import { prisma } from "@/lib/prisma";
 import { REFERRAL_COOKIE, applyReferral } from "@/lib/referral";
 import { checkNewAccount, registerDevice } from "@/lib/trust";
@@ -68,6 +69,9 @@ export const GET = withRateLimit(
         username: profile.global_name ?? profile.username,
         discordName: profile.username,
         avatar: profile.avatar,
+        // un nouveau compte démarre avec les deux réserves de paquets pleines
+        packs: PACK_MAX,
+        animePacks: PACK_MAX,
       },
     });
 
@@ -80,9 +84,16 @@ export const GET = withRateLimit(
       const isNew = user.createdAt.getTime() > Date.now() - 60_000;
       if (isNew) await checkNewAccount(user);
       // avant d'enregistrer le navigateur du filleul : on compare avec celui du parrain
-      if (isNew && referralCode) await applyReferral(user, referralCode, deviceId);
+      if (isNew) {
+        // trace de diagnostic : le code de parrainage est-il bien arrivé jusqu'ici ?
+        console.info(`nouveau compte ${user.id} : ${referralCode ? `code de parrainage ${referralCode}` : "sans code de parrainage"}`);
+        if (referralCode && (await applyReferral(user, referralCode, deviceId)))
+          console.info(`parrainage accordé : filleul ${user.id}, code ${referralCode}`);
+      }
       await registerDevice(user.id, deviceId);
-    } catch {}
+    } catch (e) {
+      console.error("connexion : suite de la création du compte", e);
+    }
 
     if (user.bannedAt) return fail("banned");
 

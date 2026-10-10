@@ -36,29 +36,37 @@ export async function referralInfo(user: Pick<User, "id" | "referralCode">): Pro
  * donner, si le code est inconnu ou si le parrainage ressemble à un abus.
  */
 export async function applyReferral(user: User, code: string, deviceId: string): Promise<boolean> {
-  if (!REFERRAL_CODE_PATTERN.test(code) || user.referredById) return false;
+  // chaque refus est journalisé : c'est la seule trace d'un parrainage qui n'a rien donné
+  const refuse = (reason: string) => {
+    console.info(`parrainage refusé (${reason}) : code ${code}, filleul ${user.id}`);
+    return false;
+  };
+  if (!REFERRAL_CODE_PATTERN.test(code)) return refuse("code invalide");
+  if (user.referredById) return refuse("déjà parrainé");
   const referrer = await prisma.user.findUnique({ where: { referralCode: code } });
-  if (!referrer || referrer.id === user.id || referrer.bannedAt) return false;
+  if (!referrer) return refuse("code inconnu");
+  if (referrer.id === user.id) return refuse("auto-parrainage");
+  if (referrer.bannedAt) return refuse("parrain suspendu");
 
   // même navigateur que le parrain : c'est un second compte du parrain, pas un nouveau joueur
   const sameDevice = await prisma.device.findFirst({
     where: { deviceId, userId: referrer.id },
     select: { userId: true },
   });
-  if (sameDevice) return false;
-  if ((await trustOf(referrer)).level === "RESTRICTED") return false;
+  if (sameDevice) return refuse("même navigateur que le parrain");
+  if ((await trustOf(referrer)).level === "RESTRICTED") return refuse("parrain restreint");
   if ((await prisma.user.count({ where: { referredById: referrer.id } })) >= REFERRAL_MAX)
-    return false;
+    return refuse("limite de filleuls atteinte");
 
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.user.updateMany({
       where: { id: user.id, referredById: null },
-      data: { referredById: referrer.id, packs: { increment: REFERRAL_REWARD_PACKS } },
+      data: { referredById: referrer.id, bonusPacks: { increment: REFERRAL_REWARD_PACKS } },
     });
     if (claimed.count === 0) return false;
     await tx.user.update({
       where: { id: referrer.id },
-      data: { packs: { increment: REFERRAL_REWARD_PACKS } },
+      data: { bonusPacks: { increment: REFERRAL_REWARD_PACKS } },
     });
     return true;
   });

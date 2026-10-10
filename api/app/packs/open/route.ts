@@ -47,9 +47,11 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     const wikiState = refill(user);
     const animeState = refill({ packs: user.animePacks, packsRefilledAt: user.animePacksRefilledAt });
     const state = anime ? animeState : wikiState;
-    if (state.packs < 1)
+    // réserve vide : un paquet bonus (parrainage) prend le relais, sans toucher à la recharge
+    const spendBonus = state.packs < 1 && user.bonusPacks >= 1;
+    if (state.packs < 1 && !spendBonus)
       return Response.json(
-        { error: "no_packs", ...status(wikiState), anime: status(animeState) },
+        { error: "no_packs", ...status(wikiState), anime: status(animeState), bonus: user.bonusPacks },
         { status: 403 },
       );
 
@@ -140,13 +142,16 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     const mythicRate = forcedMythic.size ? 0 : boosted ? BOOST_MYTHIC_RATE : MYTHIC_RATE;
     drawn.sort((a, b) => a.views - b.views);
 
-    const next = {
-      packs: state.packs - 1,
-      packsRefilledAt: state.packs >= PACK_MAX ? new Date() : state.packsRefilledAt,
-    };
+    const next = spendBonus
+      ? state
+      : {
+          packs: state.packs - 1,
+          packsRefilledAt: state.packs >= PACK_MAX ? new Date() : state.packsRefilledAt,
+        };
     const userData = {
       ...(anime ? { animePacks: next.packs, animePacksRefilledAt: next.packsRefilledAt } : next),
       ...(shieldUsed && { dupShieldPacks: { decrement: 1 } }),
+      ...(spendBonus && { bonusPacks: { decrement: 1 } }),
     };
 
     const openingId = randomUUID();
@@ -213,6 +218,7 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     return Response.json({
       ...status(anime ? wikiState : next),
       anime: status(anime ? next : animeState),
+      bonus: user.bonusPacks - (spendBonus ? 1 : 0),
       boosts: user.dropBoosts - (boosted ? 1 : 0),
       duplicateShield: user.dupShieldPacks - (shieldUsed ? 1 : 0),
       duplicateReductionUntil: user.dupReduceUntil?.toISOString() ?? null,

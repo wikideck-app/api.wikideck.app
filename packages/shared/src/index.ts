@@ -161,6 +161,8 @@ export type PackStatus = {
   boosts?: number;
   /** réserve séparée de paquets anime / manga */
   anime?: PackKindStatus;
+  /** paquets bonus (parrainage) : servent, pour l'un ou l'autre type, quand la réserve est vide */
+  bonus?: number;
   /** paquets restants protégés contre les doublons (article de la boutique) */
   duplicateShield?: number;
   /** fin de la réduction temporaire des doublons (ISO), null = inactive */
