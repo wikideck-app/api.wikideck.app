@@ -35,7 +35,7 @@ export const GET = withRateLimit("ranking", { limit: 30, windowSec: 60 }, async 
           WITH s AS (
             SELECT u."id", u."discordId", u."username", u."avatar", COUNT(*)::int AS score
             FROM "BattleGame" g JOIN "User" u ON u."id" = g."userId"
-            WHERE g."won" AND u."bannedAt" IS NULL
+            WHERE g."won" AND g."mode" = 'multi' AND u."bannedAt" IS NULL
             GROUP BY u."id"
           ), r AS (SELECT s.*, RANK() OVER (ORDER BY score DESC)::int AS rank FROM s)
           SELECT * FROM r WHERE rank <= ${size} OR "id" = ${me}::uuid ORDER BY rank, "username"`
