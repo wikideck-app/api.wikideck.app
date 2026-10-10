@@ -1712,17 +1712,17 @@ export function playerTitle(wikipediaCards: number): { title: PlayerTitle; next:
 // ---- quêtes : objectifs récompensés en wikibits, à récupérer une seule fois
 // récompense de chaque titre (le premier titre, « Nouveau joueur », ne rapporte rien)
 export const TITLE_QUEST_REWARDS: Record<Exclude<PlayerTitle["key"], "newPlayer">, number> = {
-  reader: 20,
-  curious: 50,
+  reader: 50,
+  curious: 75,
   amateur: 100,
-  connoisseur: 250,
-  scholar: 500,
-  encyclopedist: 1_000,
-  historian: 2_000,
-  expert: 4_000,
-  master: 8_000,
-  legend: 15_000,
-  guardian: 30_000,
+  connoisseur: 150,
+  scholar: 175,
+  encyclopedist: 200,
+  historian: 250,
+  expert: 275,
+  master: 300,
+  legend: 400,
+  guardian: 500,
 };
 
 export type QuestDef = {
