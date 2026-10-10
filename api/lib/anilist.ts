@@ -305,7 +305,7 @@ async function animeCounts() {
   return dbCounts;
 }
 
-async function drawFromDb(rarity: Rarity, taken: Set<number>): Promise<WikiCard | null> {
+export async function drawFromDb(rarity: Rarity, taken: Set<number>): Promise<WikiCard | null> {
   const { byRarity, total } = await animeCounts();
   const n = byRarity.get(rarity) ?? 0;
   if (total < DB_READY_MIN || n < 1) return null;

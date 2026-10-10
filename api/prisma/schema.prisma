@@ -61,6 +61,11 @@ model User {
   referredById        String?           @db.Uuid
   referredBy          User?             @relation("Referral", fields: [referredById], references: [id], onDelete: SetNull)
   referrals           User[]            @relation("Referral")
+  shopPurchases       ShopPurchase[]
+  // protection contre les doublons : paquets restants dont les cartes déjà possédées sont remplacées
+  dupShieldPacks      Int               @default(0)
+  // réduction des doublons : jusqu'à cette date, une partie des cartes déjà possédées est remplacée
+  dupReduceUntil      DateTime?
   devices             Device[]
   abuseSignals        AbuseSignal[]
   reportsMade         MessageReport[]   @relation("ReportReporter")
@@ -580,4 +585,58 @@ model ApiKey {
   revokedAt  DateTime?
 
   @@index([userId, revokedAt])
+}
+
+enum ShopItemKind {
+  WIKIPEDIA_PACKS
+  ANIME_PACKS
+  LUCK_BOOST
+  DUPLICATE_SHIELD
+  DUPLICATE_REDUCTION
+}
+
+// boutique : articles payés en wikibits, créés et modifiés par les administrateurs
+model ShopItem {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  name        String
+  description String?
+  kind        ShopItemKind
+  /// paquets ou boosters accordés par achat
+  amount      Int
+  price       Int
+  /// nombre d'achats maximum par joueur (null = illimité)
+  maxPerUser  Int?
+  /// nombre d'achats maximum par joueur et par jour, à Paris (null = illimité)
+  maxPerUserPerDay Int?
+  /// exemplaires restants (null = illimité)
+  stock       Int?
+  active      Boolean      @default(true)
+  /// fenêtre de vente facultative : l'article n'est visible et achetable qu'entre ces deux dates
+  availableFrom  DateTime?
+  availableUntil DateTime?
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  purchases ShopPurchase[]
+
+  @@index([active, sortOrder])
+}
+
+model ShopPurchase {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  userId    String       @db.Uuid
+  itemId    String?      @db.Uuid
+  /// copie de l'article au moment de l'achat : il peut être modifié ou supprimé ensuite
+  itemName  String
+  kind      ShopItemKind
+  amount    Int
+  price     Int
+  createdAt DateTime     @default(now())
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item ShopItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([userId, itemId])
+  @@index([createdAt(sort: Desc)])
 }

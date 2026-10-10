@@ -17,6 +17,7 @@ import { takeFromPool } from "@/lib/card-pool";
 import { acquireOpenSlot, releaseOpenSlot } from "@/lib/load";
 import { godpackEntries, legendaryEntry } from "@/lib/catalog";
 import { AnilistUnavailableError, drawAnimeCards } from "@/lib/anilist";
+import { avoidDuplicates, duplicateEffects } from "@/lib/duplicates";
 import { cardsFromIds, drawRandomCards, type WikiCard } from "@/lib/wikipedia";
 import { randomInt, randomUUID } from "node:crypto";
 import { existsSync, unlinkSync } from "node:fs";
@@ -122,6 +123,20 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
         forcedMythic.add(picks[0].pageId);
       }
     }
+    // articles de la boutique : protection ou réduction des doublons (pas sur un God Pack)
+    const effects = duplicateEffects(user);
+    let duplicatesAvoided = 0;
+    if (!godpack && (effects.shield || effects.reduce)) {
+      try {
+        const result = await avoidDuplicates(user.id, drawn, { always: effects.shield, anime });
+        drawn = result.cards;
+        duplicatesAvoided = result.avoided;
+      } catch {
+        /* le paquet reste celui qui a été tiré */
+      }
+    }
+    // la protection ne se consomme que si elle a servi
+    const shieldUsed = effects.shield && duplicatesAvoided > 0;
     const mythicRate = forcedMythic.size ? 0 : boosted ? BOOST_MYTHIC_RATE : MYTHIC_RATE;
     drawn.sort((a, b) => a.views - b.views);
 
@@ -129,9 +144,10 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
       packs: state.packs - 1,
       packsRefilledAt: state.packs >= PACK_MAX ? new Date() : state.packsRefilledAt,
     };
-    const userData = anime
-      ? { animePacks: next.packs, animePacksRefilledAt: next.packsRefilledAt }
-      : next;
+    const userData = {
+      ...(anime ? { animePacks: next.packs, animePacksRefilledAt: next.packsRefilledAt } : next),
+      ...(shieldUsed && { dupShieldPacks: { decrement: 1 } }),
+    };
 
     const openingId = randomUUID();
     const cards = await prisma.$transaction(async (tx) => {
@@ -198,6 +214,9 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
       ...status(anime ? wikiState : next),
       anime: status(anime ? next : animeState),
       boosts: user.dropBoosts - (boosted ? 1 : 0),
+      duplicateShield: user.dupShieldPacks - (shieldUsed ? 1 : 0),
+      duplicateReductionUntil: user.dupReduceUntil?.toISOString() ?? null,
+      duplicatesAvoided,
       cards,
       ...(godpack && { godpack }),
     } satisfies OpenPackResponse);

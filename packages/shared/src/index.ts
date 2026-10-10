@@ -157,9 +157,15 @@ export type PackStatus = {
   boosts?: number;
   /** réserve séparée de paquets anime / manga */
   anime?: PackKindStatus;
+  /** paquets restants protégés contre les doublons (article de la boutique) */
+  duplicateShield?: number;
+  /** fin de la réduction temporaire des doublons (ISO), null = inactive */
+  duplicateReductionUntil?: string | null;
 };
 
 export type OpenPackResponse = PackStatus & {
+  /** cartes déjà possédées remplacées par une carte nouvelle (protection / réduction des doublons) */
+  duplicatesAvoided?: number;
   cards: (CardDto & { isNew: boolean; quantity: number; tags: TagDto[] })[];
   godpack?: boolean;
 };
@@ -1604,3 +1610,67 @@ export type AlbumCandidatesResponse = {
   room: number;
 };
 
+
+// ---- boutique (articles payés en wikibits, gérés par les administrateurs)
+export const SHOP_KINDS = [
+  "WIKIPEDIA_PACKS",
+  "ANIME_PACKS",
+  "LUCK_BOOST",
+  "DUPLICATE_SHIELD",
+  "DUPLICATE_REDUCTION",
+] as const;
+// réduction des doublons : chance de remplacer chaque carte déjà possédée (la protection les remplace toutes)
+export const DUPLICATE_REDUCTION_CHANCE = 0.5;
+export type ShopItemKind = (typeof SHOP_KINDS)[number];
+export const SHOP_NAME_MAX = 60;
+export const SHOP_DESCRIPTION_MAX = 240;
+export const SHOP_MAX_PRICE = 1_000_000;
+export const SHOP_MAX_AMOUNT = 100;
+export const SHOP_MAX_ITEMS = 50;
+
+export type ShopItemDto = {
+  id: string;
+  name: string;
+  description: string | null;
+  kind: ShopItemKind;
+  amount: number;
+  price: number;
+  maxPerUser: number | null;
+  /** achats maximum par joueur et par jour (jour de Paris), null = illimité */
+  maxPerUserPerDay: number | null;
+  /** exemplaires restants, null = illimité */
+  stock: number | null;
+  /** achats déjà faits par le joueur */
+  purchased: number;
+  /** achats faits aujourd'hui par le joueur */
+  purchasedToday: number;
+  /** fin de l'offre (ISO), null = sans limite de durée */
+  availableUntil: string | null;
+};
+
+export type ShopResponse = { items: ShopItemDto[]; wikibits: number };
+export type ShopBuyResponse = { wikibits: number; item: ShopItemDto };
+
+export type StaffShopItem = Omit<ShopItemDto, "purchased" | "purchasedToday"> & {
+  active: boolean;
+  /** début de l'offre (ISO), null = déjà ouverte */
+  availableFrom: string | null;
+  sortOrder: number;
+  /** achats réalisés depuis la création de l'article */
+  sold: number;
+};
+export type StaffShopInput = {
+  name: string;
+  description: string | null;
+  kind: ShopItemKind;
+  amount: number;
+  price: number;
+  maxPerUser: number | null;
+  maxPerUserPerDay: number | null;
+  stock: number | null;
+  active: boolean;
+  /** fenêtre de vente facultative (dates ISO) */
+  availableFrom: string | null;
+  availableUntil: string | null;
+  sortOrder: number;
+};

@@ -26,5 +26,8 @@ export const GET = withRateLimit("packs-status", { limit: 60, windowSec: 60 }, a
     ...status(state),
     boosts: user.dropBoosts,
     anime: status(anime),
+    duplicateShield: user.dupShieldPacks,
+    duplicateReductionUntil:
+      user.dupReduceUntil && user.dupReduceUntil > new Date() ? user.dupReduceUntil.toISOString() : null,
   } satisfies PackStatus);
 });
