@@ -1,5 +1,6 @@
 import {
   FEATURED_MAX,
+  NO_TITLE,
   PROFILE_ALBUMS_MAX,
   RARITIES,
   parseTitleId,
@@ -152,7 +153,8 @@ export const GET = withRateLimit<Ctx>(
     };
     // titre choisi : retenu seulement s'il est toujours mérité (le joueur a pu perdre des cartes)
     const chosen = parseTitleId(player.displayedTitle);
-    if (chosen && (chosen.kind === "anime" ? animeCards : wikipediaCards) >= chosen.min)
+    if (player.displayedTitle === NO_TITLE) dto.displayedTitle = NO_TITLE;
+    else if (chosen && (chosen.kind === "anime" ? animeCards : wikipediaCards) >= chosen.min)
       dto.displayedTitle = `${chosen.kind}:${chosen.key}`;
     dto.showcase = player.showcaseCard ? toCardDto(player.showcaseCard) : null;
     const order = new Map(player.featuredCardIds.map((cid, i) => [cid, i]));

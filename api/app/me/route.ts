@@ -5,6 +5,7 @@ import {
   USERNAME_MAX,
   USERNAME_MIN,
   USERNAME_PATTERN,
+  NO_TITLE,
   normalizeSettings,
   parseTitleId,
   titleId,
@@ -107,8 +108,9 @@ export const PATCH = withRateLimit("me-update", { limit: 20, windowSec: 60 }, as
   }
 
   if (body.displayedTitle !== undefined) {
-    if (body.displayedTitle === null) {
-      data.displayedTitle = null;
+    if (body.displayedTitle === null || body.displayedTitle === NO_TITLE) {
+      // null : automatique ; « none » : aucun titre sur le profil
+      data.displayedTitle = body.displayedTitle;
     } else {
       const title = parseTitleId(body.displayedTitle);
       if (!title) return Response.json({ error: "invalid" }, { status: 400 });

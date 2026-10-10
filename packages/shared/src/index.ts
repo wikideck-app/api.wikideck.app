@@ -1742,6 +1742,8 @@ export function parseTitleId(
   const found = list?.find((t) => t.key === key);
   return list && found ? { kind: kind as "wikipedia" | "anime", key: found.key, min: found.min, emoji: found.emoji } : null;
 }
+/** valeur de displayedTitle : le joueur ne veut afficher aucun titre */
+export const NO_TITLE = "none";
 export const titleId = (kind: "wikipedia" | "anime", key: string) => `${kind}:${key}`;
 
 export const playerTitle = (wikipediaCards: number) => pickTitle(PLAYER_TITLES, wikipediaCards);
