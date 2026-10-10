@@ -78,6 +78,7 @@ enum StaffRole {
 enum CardSource {
   WIKIPEDIA
   ANILIST
+  KITSU
 }
 
 enum Rarity {
@@ -121,6 +122,8 @@ model Card {
   wishes      GuildWish[]
   wishedBy    WishlistItem[]
   albumCards  AlbumCard[]
+
+  @@index([source, rarity])
 }
 
 model UserCard {

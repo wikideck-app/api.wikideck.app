@@ -1,5 +1,6 @@
 import { normalizeSettings } from "@wikideck/shared";
 import { ANILIST_ID_OFFSET } from "@/lib/anilist";
+import { KITSU_ID_OFFSET } from "@/lib/kitsu";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
@@ -78,6 +79,8 @@ export const GET = withRateLimit("me-export", { limit: 5, windowSec: 60 }, async
       source: c.card.source,
       ...(c.card.source === "ANILIST"
         ? { anilistId: Math.abs(c.card.pageId) - ANILIST_ID_OFFSET }
+        : c.card.source === "KITSU"
+          ? { kitsuId: Math.abs(c.card.pageId) - KITSU_ID_OFFSET }
         : { wikipediaPageId: Math.abs(c.card.pageId) }),
       url: c.card.url,
       rarity: c.card.rarity,

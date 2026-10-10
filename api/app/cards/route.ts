@@ -9,6 +9,7 @@ import {
   type CatalogCard,
   type CatalogResponse,
   type CatalogSort,
+  type PackKind,
 } from "@wikideck/shared";
 import { Prisma, type Rarity } from "@/generated/prisma/client";
 import { rarityCounts } from "@/lib/catalog";
@@ -38,12 +39,28 @@ export const GET = withRateLimit("cards-catalog", { limit: 60, windowSec: 60 }, 
     (params.get("rarity") ?? "").split(",").includes(r.code),
   ).map((r) => r.value);
 
-  const counts = await rarityCounts();
+  // catalogue Wikipédia (table des articles) ou anime / manga (personnages enregistrés comme cartes)
+  const source: PackKind = params.get("source") === "anime" ? "anime" : "wikipedia";
+  const anime = source === "anime";
+  const counts = anime
+    ? new Map(
+        (
+          await prisma.card.groupBy({
+            by: ["rarity"],
+            where: { source: { in: ["ANILIST", "KITSU"] }, baseCardId: null },
+            _count: true,
+          })
+        ).map((g) => [g.rarity, g._count]),
+      )
+    : await rarityCounts();
   const catalog = [...counts.values()].reduce((a, b) => a + b, 0);
 
   const searching = searchTokens(query, CATALOG_SEARCH_MIN).length > 0;
   const needsJoin = ownership !== "all";
+  const table = anime ? Prisma.sql`"Card"` : Prisma.sql`"WikiArticle"`;
   const where: Prisma.Sql[] = [];
+  // les versions mythiques ne sont pas des entrées du catalogue
+  if (anime) where.push(Prisma.sql`a.source IN ('ANILIST', 'KITSU') AND a."baseCardId" IS NULL`);
   if (rarities.length) where.push(Prisma.sql`a.rarity = ANY(${rarities}::"Rarity"[])`);
   // chaque mot (3 lettres au moins) doit se trouver n'importe où dans le titre
   for (const token of searchTokens(query, CATALOG_SEARCH_MIN)) {
@@ -58,10 +75,10 @@ export const GET = withRateLimit("cards-catalog", { limit: 60, windowSec: 60 }, 
     );
   const whereSql = where.length ? Prisma.sql`WHERE ${Prisma.join(where, " AND ")}` : Prisma.empty;
   const from = needsJoin
-    ? Prisma.sql`FROM "WikiArticle" a
+    ? Prisma.sql`FROM ${table} a
         LEFT JOIN "Card" c ON c."pageId" = a."pageId"
         LEFT JOIN "UserCard" uc ON uc."cardId" = c.id AND uc."userId" = ${user.id}::uuid`
-    : Prisma.sql`FROM "WikiArticle" a`;
+    : Prisma.sql`FROM ${table} a`;
 
   let total: number;
   if (!searching && !needsJoin) {
@@ -111,7 +128,9 @@ export const GET = withRateLimit("cards-catalog", { limit: 60, windowSec: 60 }, 
       where: { userId: user.id, cardId: { in: cardIds } },
       select: { cardId: true, quantity: true },
     }),
-    prisma.userCard.count({ where: { userId: user.id } }),
+    prisma.userCard.count({
+      where: { userId: user.id, card: { source: anime ? { in: ["ANILIST", "KITSU"] } : "WIKIPEDIA", baseCardId: null } },
+    }),
   ]);
   const ownerCount = new Map(owners.map((o) => [o.cardId, o._count]));
   const quantity = new Map(mine.map((m) => [m.cardId, m.quantity]));
@@ -144,5 +163,6 @@ export const GET = withRateLimit("cards-catalog", { limit: 60, windowSec: 60 }, 
       .map((r) => ({ rarity: r.value, count: counts.get(r.value) ?? 0 })),
     catalog,
     owned,
+    source,
   } satisfies CatalogResponse);
 });

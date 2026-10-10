@@ -142,7 +142,10 @@ export type CardDto = {
   source?: CardSource;
 };
 
-export type CardSource = "WIKIPEDIA" | "ANILIST";
+export type CardSource = "WIKIPEDIA" | "ANILIST" | "KITSU";
+/** AniList et Kitsu alimentent la même collection « anime / manga » */
+export const isAnimeSource = (source: CardSource | undefined) =>
+  source === "ANILIST" || source === "KITSU";
 export type PackKind = "wikipedia" | "anime";
 
 export type PackKindStatus = { packs: number; max: number; nextInMs: number | null };
@@ -333,6 +336,8 @@ export type CatalogResponse = {
   counts: { rarity: Rarity; count: number }[];
   catalog: number;
   owned: number;
+  /** catalogue affiché : articles Wikipédia ou personnages anime / manga */
+  source: PackKind;
 };
 
 export const COLLECTION_SEARCH_MAX = 100;

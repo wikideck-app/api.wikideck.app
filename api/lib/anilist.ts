@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { ANIME_DROP_BANDS } from "@wikideck/shared";
 import type { Rarity } from "@/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
 import type { WikiCard } from "@/lib/wikipedia";
 
@@ -286,11 +287,63 @@ export const toAnimeCard = (c: AnimeChar): WikiCard => ({
   source: "ANILIST",
 });
 
+// Une fois le catalogue enregistré en base (AniList + Kitsu), on tire directement dans la table :
+// aucune attente réseau. Avant cela, repli sur les pages d'AniList.
+const DB_READY_MIN = 4000;
+const COUNTS_TTL_MS = 10 * 60_000;
+let dbCounts: { at: number; byRarity: Map<Rarity, number>; total: number } | null = null;
+
+async function animeCounts() {
+  if (dbCounts && Date.now() - dbCounts.at < COUNTS_TTL_MS) return dbCounts;
+  const groups = await prisma.card.groupBy({
+    by: ["rarity"],
+    where: { source: { in: ["ANILIST", "KITSU"] }, baseCardId: null },
+    _count: true,
+  });
+  const byRarity = new Map<Rarity, number>(groups.map((g) => [g.rarity, g._count]));
+  dbCounts = { at: Date.now(), byRarity, total: groups.reduce((sum, g) => sum + g._count, 0) };
+  return dbCounts;
+}
+
+async function drawFromDb(rarity: Rarity, taken: Set<number>): Promise<WikiCard | null> {
+  const { byRarity, total } = await animeCounts();
+  const n = byRarity.get(rarity) ?? 0;
+  if (total < DB_READY_MIN || n < 1) return null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const row = await prisma.card.findFirst({
+      where: { source: { in: ["ANILIST", "KITSU"] }, baseCardId: null, rarity },
+      orderBy: { pageId: "asc" },
+      skip: randomInt(n),
+    });
+    if (row && !taken.has(row.pageId)) {
+      return {
+        pageId: row.pageId,
+        title: row.title,
+        description: row.description,
+        extract: row.extract,
+        imageUrl: row.imageUrl,
+        url: row.url,
+        views: row.views,
+        length: row.length,
+        languages: row.languages,
+        rarity: row.rarity,
+        source: row.source,
+      };
+    }
+  }
+  return null;
+}
+
 export async function drawAnimeCards(count: number): Promise<WikiCard[]> {
   const picked = new Map<number, WikiCard>();
   let failure: AnilistUnavailableError | null = null;
   for (let guard = 0; picked.size < count && guard < count * 10; guard++) {
     const band = pickBand();
+    const fromDb = await drawFromDb(band.rarity, new Set(picked.keys())).catch(() => null);
+    if (fromDb) {
+      picked.set(fromDb.pageId, fromDb);
+      continue;
+    }
     const rank = band.from + randomInt(band.to - band.from + 1);
     // d'abord une page déjà en cache dans la tranche : aucune attente réseau
     let chars = await cachedPageIn(band.from, band.to);
@@ -315,27 +368,51 @@ export async function drawAnimeCards(count: number): Promise<WikiCard[]> {
 }
 
 const WARM_LOCK = "lock:anilist-warm";
+const PERSISTED_KEY = "anilist:persisted";
 
-/** Remplit en arrière-plan le cache des pages (100 requêtes au total, une toutes les 2,3 s). */
+// enregistre les personnages d'une page en base : le catalogue (« Toutes les cartes ») les liste
+async function persistChars(chars: AnimeChar[]) {
+  if (!chars.length) return;
+  await prisma.card.createMany({ data: chars.map(toAnimeCard), skipDuplicates: true });
+}
+
+/**
+ * Tient à jour, en arrière-plan, le cache des pages (100 requêtes, une toutes les 2,3 s) et le
+ * catalogue en base (un personnage = une carte), jusqu'à ce que tout soit complet.
+ */
 export function warmAnimePages() {
   void (async () => {
     try {
       if (!(await redis.set(WARM_LOCK, "1", "EX", 75, "NX"))) return;
       const total = Math.ceil(MAX_RANK / PER_PAGE);
       const all = Array.from({ length: total }, (_, i) => i + 1);
-      const have = await redis.mget(all.map(pageKey));
-      const missing = all.filter((_, i) => have[i] === null);
+      const persisted = new Set((await redis.smembers(PERSISTED_KEY)).map(Number));
+      const pipeline = redis.pipeline();
+      all.forEach((p) => pipeline.exists(pageKey(p)));
+      const present = ((await pipeline.exec()) ?? []).map((r) => r[1] === 1);
       // dans le désordre : toutes les tranches de rareté se remplissent en même temps
-      for (let i = missing.length - 1; i > 0; i--) {
+      const order = [...all];
+      for (let i = order.length - 1; i > 0; i--) {
         const j = randomInt(i + 1);
-        [missing[i], missing[j]] = [missing[j], missing[i]];
+        [order[i], order[j]] = [order[j], order[i]];
       }
-      for (const page of missing.slice(0, 25)) {
-        if (await isBlocked()) break;
-        if (await redis.exists(pageKey(page))) continue;
-        const chars = await fetchPage(page, 0);
-        remember(page, chars);
-        await redis.set(pageKey(page), JSON.stringify(chars), "EX", PAGE_TTL_SEC).catch(() => {});
+      let fetched = 0;
+      for (const page of order) {
+        let chars: AnimeChar[] | null = null;
+        if (!present[page - 1]) {
+          if (fetched >= 25 || (await isBlocked())) continue;
+          chars = await fetchPage(page, 0);
+          fetched++;
+          remember(page, chars);
+          await redis.set(pageKey(page), JSON.stringify(chars), "EX", PAGE_TTL_SEC).catch(() => {});
+        } else if (!persisted.has(page)) {
+          const raw = await redis.get(pageKey(page));
+          chars = raw ? (JSON.parse(raw) as AnimeChar[]) : null;
+        }
+        if (chars) {
+          await persistChars(chars);
+          await redis.sadd(PERSISTED_KEY, String(page));
+        }
       }
     } catch {
       /* le tirage retombe sur ce qui est déjà en cache */

@@ -58,7 +58,7 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
       card: {
         ...(rarities.length && { rarity: { in: rarities } }),
         ...(query && { AND: textFilter(query) }),
-        ...(source && { source: source === "anime" ? "ANILIST" : "WIKIPEDIA" }),
+        ...(source && { source: source === "anime" ? { in: ["ANILIST", "KITSU"] } : "WIKIPEDIA" }),
       },
     }),
     ...(tag && { tags: { some: { id: tag, userId: user.id } } }),
@@ -68,7 +68,9 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
   const [total, wikipediaCount, animeCount, tags] = await Promise.all([
     prisma.userCard.count({ where }),
     prisma.userCard.count({ where: { userId: user.id, card: { source: "WIKIPEDIA" } } }),
-    prisma.userCard.count({ where: { userId: user.id, card: { source: "ANILIST" } } }),
+    prisma.userCard.count({
+      where: { userId: user.id, card: { source: { in: ["ANILIST", "KITSU"] } } },
+    }),
     prisma.tag.findMany({
       where: { userId: user.id },
       orderBy: { name: "asc" },
