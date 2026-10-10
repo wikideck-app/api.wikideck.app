@@ -64,6 +64,7 @@ model User {
   referredBy          User?             @relation("Referral", fields: [referredById], references: [id], onDelete: SetNull)
   referrals           User[]            @relation("Referral")
   shopPurchases       ShopPurchase[]
+  questClaims         QuestClaim[]
   // protection contre les doublons : paquets restants dont les cartes déjà possédées sont remplacées
   dupShieldPacks      Int               @default(0)
   // réduction des doublons : jusqu'à cette date, une partie des cartes déjà possédées est remplacée
@@ -641,4 +642,17 @@ model ShopPurchase {
 
   @@index([userId, itemId])
   @@index([createdAt(sort: Desc)])
+}
+
+// quêtes : une récompense en wikibits, récupérée une seule fois par joueur et par quête
+model QuestClaim {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  questId   String
+  reward    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questId])
 }

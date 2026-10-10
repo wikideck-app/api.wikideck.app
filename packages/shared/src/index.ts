@@ -1210,6 +1210,8 @@ export type LiveEvent =
 
 export type ProfileStats = {
   cards: number;
+  /** cartes Wikipédia différentes possédées : détermine le titre du joueur */
+  wikipediaCards: number;
   completion: number;
   copies: number;
   byRarity: Record<Rarity, number>;
@@ -1680,3 +1682,73 @@ export type StaffShopInput = {
   availableUntil: string | null;
   sortOrder: number;
 };
+
+// ---- titres : gagnés avec le nombre de cartes Wikipédia différentes possédées (l'anime / manga ne compte pas)
+export const PLAYER_TITLES = [
+  { min: 0, key: "newPlayer", emoji: "🃏" },
+  { min: 10, key: "reader", emoji: "📖" },
+  { min: 50, key: "curious", emoji: "🔎" },
+  { min: 100, key: "amateur", emoji: "📚" },
+  { min: 250, key: "connoisseur", emoji: "🧠" },
+  { min: 500, key: "scholar", emoji: "🎓" },
+  { min: 1_000, key: "encyclopedist", emoji: "🏛️" },
+  { min: 2_500, key: "historian", emoji: "📜" },
+  { min: 5_000, key: "expert", emoji: "🔬" },
+  { min: 10_000, key: "master", emoji: "👑" },
+  { min: 25_000, key: "legend", emoji: "🌟" },
+  { min: 50_000, key: "guardian", emoji: "🏆" },
+] as const;
+export type PlayerTitle = (typeof PLAYER_TITLES)[number];
+
+/** Titre actuel d'un joueur et prochain à atteindre (null au plus haut titre). */
+export function playerTitle(wikipediaCards: number): { title: PlayerTitle; next: PlayerTitle | null } {
+  let index = 0;
+  PLAYER_TITLES.forEach((t, i) => {
+    if (wikipediaCards >= t.min) index = i;
+  });
+  return { title: PLAYER_TITLES[index], next: PLAYER_TITLES[index + 1] ?? null };
+}
+
+// ---- quêtes : objectifs récompensés en wikibits, à récupérer une seule fois
+// récompense de chaque titre (le premier titre, « Nouveau joueur », ne rapporte rien)
+export const TITLE_QUEST_REWARDS: Record<Exclude<PlayerTitle["key"], "newPlayer">, number> = {
+  reader: 20,
+  curious: 50,
+  amateur: 100,
+  connoisseur: 250,
+  scholar: 500,
+  encyclopedist: 1_000,
+  historian: 2_000,
+  expert: 4_000,
+  master: 8_000,
+  legend: 15_000,
+  guardian: 30_000,
+};
+
+export type QuestDef = {
+  /** identifiant stable : sert à retenir ce que le joueur a déjà récupéré */
+  id: string;
+  kind: "wikipedia_cards";
+  /** nombre de cartes Wikipédia à posséder */
+  target: number;
+  reward: number;
+  titleKey: PlayerTitle["key"];
+  emoji: string;
+};
+
+export const QUESTS: QuestDef[] = PLAYER_TITLES.filter((t) => t.min > 0).map((t) => ({
+  id: `title:${t.key}`,
+  kind: "wikipedia_cards" as const,
+  target: t.min,
+  reward: t.key === "newPlayer" ? 0 : TITLE_QUEST_REWARDS[t.key],
+  titleKey: t.key,
+  emoji: t.emoji,
+}));
+
+export type QuestDto = QuestDef & {
+  progress: number;
+  claimed: boolean;
+  claimable: boolean;
+};
+export type QuestsResponse = { quests: QuestDto[]; wikibits: number };
+export type QuestClaimResponse = { wikibits: number; reward: number };
