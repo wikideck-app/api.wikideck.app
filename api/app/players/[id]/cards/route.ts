@@ -3,6 +3,7 @@ import {
   COLLECTION_SEARCH_MAX,
   type CollectionResponse,
 } from "@wikideck/shared";
+import type { Prisma } from "@/generated/prisma/client";
 import { toCardDto } from "@/lib/cards";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -27,9 +28,22 @@ export const GET = withRateLimit<Ctx>(
     }
 
     const q = (request.nextUrl.searchParams.get("q") ?? "").trim().slice(0, COLLECTION_SEARCH_MAX);
-    const where = {
+    // source=wikipedia | anime : une seule des deux collections (absent = toutes)
+    const sourceParam = request.nextUrl.searchParams.get("source");
+    const source: Prisma.CardWhereInput["source"] | null =
+      sourceParam === "anime"
+        ? { in: ["ANILIST", "KITSU"] }
+        : sourceParam === "wikipedia"
+          ? "WIKIPEDIA"
+          : null;
+    const where: Prisma.UserCardWhereInput = {
       userId: id,
-      ...(q && { card: { title: { contains: q, mode: "insensitive" as const } } }),
+      ...((q || source) && {
+        card: {
+          ...(q && { title: { contains: q, mode: "insensitive" as const } }),
+          ...(source && { source }),
+        },
+      }),
     };
     const total = await prisma.userCard.count({ where });
     const totalPages = Math.max(1, Math.ceil(total / COLLECTION_PAGE_SIZE));
