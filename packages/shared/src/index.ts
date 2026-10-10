@@ -103,6 +103,10 @@ export const DROP_RARITIES = RARITIES.filter((r) => r.value !== "MYTHIC");
 // chance qu'une légendaire tirée soit mythique : 5 %
 export const MYTHIC_RATE = 0.05;
 
+// paquets anime / manga : à rareté égale, part des tirages qui revient aux personnages d'AniList (les plus
+// connus) quand Kitsu en propose aussi ; le reste va à Kitsu
+export const ANIME_ANILIST_SHARE = 0.6;
+
 // paquets anime / manga (AniList) : rang de popularité (1 = le plus aimé) et chance de tirage de chaque rareté
 export const ANIME_DROP_BANDS: { rarity: Rarity; from: number; to: number; weight: number }[] = [
   { rarity: "COMMON", from: 3501, to: 5000, weight: 0.425 },

@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { ANIME_DROP_BANDS } from "@wikideck/shared";
+import { ANIME_ANILIST_SHARE, ANIME_DROP_BANDS } from "@wikideck/shared";
 import type { Rarity } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
@@ -291,27 +291,43 @@ export const toAnimeCard = (c: AnimeChar): WikiCard => ({
 // aucune attente réseau. Avant cela, repli sur les pages d'AniList.
 const DB_READY_MIN = 4000;
 const COUNTS_TTL_MS = 10 * 60_000;
-let dbCounts: { at: number; byRarity: Map<Rarity, number>; total: number } | null = null;
+type AnimeSource = "ANILIST" | "KITSU";
+let dbCounts: { at: number; counts: Map<string, number>; total: number } | null = null;
+const countKey = (rarity: Rarity, source: AnimeSource) => `${rarity}:${source}`;
 
 async function animeCounts() {
   if (dbCounts && Date.now() - dbCounts.at < COUNTS_TTL_MS) return dbCounts;
   const groups = await prisma.card.groupBy({
-    by: ["rarity"],
+    by: ["rarity", "source"],
     where: { source: { in: ["ANILIST", "KITSU"] }, baseCardId: null },
     _count: true,
   });
-  const byRarity = new Map<Rarity, number>(groups.map((g) => [g.rarity, g._count]));
-  dbCounts = { at: Date.now(), byRarity, total: groups.reduce((sum, g) => sum + g._count, 0) };
+  const counts = new Map<string, number>(
+    groups.map((g) => [countKey(g.rarity, g.source as AnimeSource), g._count]),
+  );
+  dbCounts = { at: Date.now(), counts, total: groups.reduce((sum, g) => sum + g._count, 0) };
   return dbCounts;
 }
 
 export async function drawFromDb(rarity: Rarity, taken: Set<number>): Promise<WikiCard | null> {
-  const { byRarity, total } = await animeCounts();
-  const n = byRarity.get(rarity) ?? 0;
-  if (total < DB_READY_MIN || n < 1) return null;
+  const { counts, total } = await animeCounts();
+  if (total < DB_READY_MIN) return null;
+  const anilist = counts.get(countKey(rarity, "ANILIST")) ?? 0;
+  const kitsu = counts.get(countKey(rarity, "KITSU")) ?? 0;
+  if (anilist + kitsu < 1) return null;
+  // à rareté égale : 60 % des tirages vont aux personnages d'AniList (plus connus), 40 % à Kitsu
+  const source: AnimeSource =
+    anilist && kitsu
+      ? randomInt(1_000_000) < ANIME_ANILIST_SHARE * 1_000_000
+        ? "ANILIST"
+        : "KITSU"
+      : anilist
+        ? "ANILIST"
+        : "KITSU";
+  const n = source === "ANILIST" ? anilist : kitsu;
   for (let attempt = 0; attempt < 3; attempt++) {
     const row = await prisma.card.findFirst({
-      where: { source: { in: ["ANILIST", "KITSU"] }, baseCardId: null, rarity },
+      where: { source, baseCardId: null, rarity },
       orderBy: { pageId: "asc" },
       skip: randomInt(n),
     });
