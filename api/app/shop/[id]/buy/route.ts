@@ -1,4 +1,4 @@
-import { WISHLIST_EXTRA_MAX, type ShopBuyResponse } from "@wikideck/shared";
+import { ALBUM_EXTRA_MAX, WISHLIST_EXTRA_MAX, type ShopBuyResponse } from "@wikideck/shared";
 import { parisDayStart } from "@/lib/day";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -58,11 +58,13 @@ export const POST = withRateLimit<Ctx>(
 
         const current = await tx.user.findUniqueOrThrow({
           where: { id: user.id },
-          select: { dupReduceUntil: true, wishlistSlots: true },
+          select: { dupReduceUntil: true, wishlistSlots: true, albumSlots: true },
         });
         // la liste d'envies ne grandit pas à l'infini
         if (item.kind === "WISHLIST_SLOT" && current.wishlistSlots + item.amount > WISHLIST_EXTRA_MAX)
           throw new ShopError("shop_wishlist_full", 409);
+        if (item.kind === "ALBUM_SLOT" && current.albumSlots + item.amount > ALBUM_EXTRA_MAX)
+          throw new ShopError("shop_album_full", 409);
         const paid = await tx.user.updateMany({
           where: { id: user.id, wikibits: { gte: item.price } },
           data: {

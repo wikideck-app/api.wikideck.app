@@ -1,5 +1,6 @@
 import {
   ALBUM_MAX_DEPTH,
+  ALBUM_FREE_PER_USER,
   ALBUM_MAX_PER_USER,
   ALBUM_NAME_MAX,
   type AlbumsResponse,
@@ -17,6 +18,10 @@ import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
 import { isUuid, readJson } from "@/lib/tags";
+
+// nombre d'albums (sous-albums compris) que le joueur peut avoir : gratuits + emplacements achetés
+const albumLimit = (user: { albumSlots: number }) =>
+  Math.min(ALBUM_MAX_PER_USER, ALBUM_FREE_PER_USER + user.albumSlots);
 
 export const GET = withRateLimit("albums-list", { limit: 60, windowSec: 60 }, async (request) => {
   const user = await currentUser();
@@ -49,7 +54,7 @@ export const GET = withRateLimit("albums-list", { limit: 60, windowSec: 60 }, as
     ),
   ]);
   const summaries = [...rootSummaries, ...otherSummaries];
-  return Response.json({ albums: summaries, max: ALBUM_MAX_PER_USER } satisfies AlbumsResponse);
+  return Response.json({ albums: summaries, max: albumLimit(user) } satisfies AlbumsResponse);
 });
 
 export const POST = withRateLimit(
@@ -66,7 +71,7 @@ export const POST = withRateLimit(
     if (parentId !== null && !isUuid(parentId))
       return Response.json({ error: "not_found" }, { status: 404 });
     const tree = await loadTree(user.id);
-    if (tree.length >= ALBUM_MAX_PER_USER)
+    if (tree.length >= albumLimit(user))
       return Response.json({ error: "too_many_albums" }, { status: 403 });
     if (parentId !== null) {
       if (!tree.some((a) => a.id === parentId))

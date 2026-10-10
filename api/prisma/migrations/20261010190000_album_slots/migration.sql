@@ -1,0 +1,5 @@
+-- AlterEnum
+ALTER TYPE "ShopItemKind" ADD VALUE 'ALBUM_SLOT';
+
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "albumSlots" INTEGER NOT NULL DEFAULT 0;

@@ -1591,7 +1591,11 @@ export type DeletedAccountRow = {
 
 export const ALBUM_NAME_MAX = 40;
 // albums et sous-albums confondus
+// albums et sous-albums : ALBUM_FREE_PER_USER gratuits, puis un emplacement acheté en boutique par album
+// supplémentaire, jusqu'à ALBUM_MAX_PER_USER
+export const ALBUM_FREE_PER_USER = 15;
 export const ALBUM_MAX_PER_USER = 100;
+export const ALBUM_EXTRA_MAX = ALBUM_MAX_PER_USER - ALBUM_FREE_PER_USER;
 // niveaux de classeur : un album, ses sous-albums, leurs sous-albums...
 export const ALBUM_MAX_DEPTH = 4;
 export const ALBUM_CARDS_MAX = 500;
@@ -1655,6 +1659,7 @@ export const SHOP_KINDS = [
   "DUPLICATE_SHIELD",
   "DUPLICATE_REDUCTION",
   "WISHLIST_SLOT",
+  "ALBUM_SLOT",
 ] as const;
 // réduction des doublons : chance de remplacer chaque carte déjà possédée (la protection les remplace toutes)
 export const DUPLICATE_REDUCTION_CHANCE = 0.5;

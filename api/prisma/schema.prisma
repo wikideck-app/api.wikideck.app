@@ -26,6 +26,8 @@ model User {
   displayedTitle      String?
   // emplacements de liste d'envies achetés en boutique (s'ajoutent à WISHLIST_MAX)
   wishlistSlots       Int        @default(0)
+  // emplacements d'albums achetés en boutique (s'ajoutent à ALBUM_FREE_PER_USER)
+  albumSlots          Int        @default(0)
   animePacksRefilledAt DateTime  @default(now())
   cards           UserCard[]
   tags            Tag[]
@@ -605,6 +607,7 @@ enum ShopItemKind {
   DUPLICATE_SHIELD
   DUPLICATE_REDUCTION
   WISHLIST_SLOT
+  ALBUM_SLOT
 }
 
 // boutique : articles payés en wikibits, créés et modifiés par les administrateurs

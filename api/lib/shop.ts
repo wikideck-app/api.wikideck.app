@@ -142,7 +142,9 @@ export const grantOf = (
           ? { dupShieldPacks: { increment: amount } }
           : kind === "WISHLIST_SLOT"
             ? { wishlistSlots: { increment: amount } }
-            : {
+            : kind === "ALBUM_SLOT"
+              ? { albumSlots: { increment: amount } }
+              : {
               // amount = heures
               dupReduceUntil: new Date(
                 Math.max(now.getTime(), reduceUntil?.getTime() ?? 0) + amount * 3_600_000,
