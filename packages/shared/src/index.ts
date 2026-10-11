@@ -1465,7 +1465,7 @@ export type StaffUserAction =
   | { action: "setTrust"; override: "TRUSTED" | "RESTRICTED" | null }
   | { action: "clearSignals" }
   | { action: "wikibits"; amount: number; reason: string }
-  | { action: "packs"; count: number }
+  | { action: "packs"; count: number; kind?: "wikipedia" | "anime" | "bonus" }
   | { action: "setRole"; role: StaffRole | null }
   | { action: "delete"; confirm: string; reason: string };
 

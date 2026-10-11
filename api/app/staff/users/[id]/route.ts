@@ -172,8 +172,19 @@ export const POST = withRateLimit<Ctx>(
         if (!atLeast(role, "ADMIN")) return bad("forbidden", 403);
         const count = body.count;
         if (!Number.isInteger(count) || count < 1 || count > 100) return bad("invalid");
-        await prisma.user.update({ where: { id }, data: { packs: { increment: count } } });
-        await logStaff(actor, "packs", target, { count, maxRecharge: PACK_MAX });
+        // type de paquet : Wikipédia (par défaut), anime / manga ou bonus (parrainage)
+        const kind = body.kind ?? "wikipedia";
+        if (kind !== "wikipedia" && kind !== "anime" && kind !== "bonus") return bad("invalid");
+        await prisma.user.update({
+          where: { id },
+          data:
+            kind === "anime"
+              ? { animePacks: { increment: count } }
+              : kind === "bonus"
+                ? { bonusPacks: { increment: count } }
+                : { packs: { increment: count } },
+        });
+        await logStaff(actor, "packs", target, { count, kind, maxRecharge: PACK_MAX });
         break;
       }
       case "setRole": {
