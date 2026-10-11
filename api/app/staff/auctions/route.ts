@@ -1,4 +1,5 @@
 import type { AuctionStatus, StaffAuctionRow } from "@wikideck/shared";
+import { textFilter } from "@/lib/albums";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { requireStaff } from "@/lib/staff";
@@ -19,7 +20,7 @@ export const GET = withRateLimit(
       ...(params.get("status") !== "all" && { status: "ACTIVE" as const }),
       ...(q && {
         OR: [
-          { card: { title: { contains: q, mode: "insensitive" as const } } },
+          { card: { AND: textFilter(q) } },
           { seller: { username: { contains: q, mode: "insensitive" as const } } },
         ],
       }),

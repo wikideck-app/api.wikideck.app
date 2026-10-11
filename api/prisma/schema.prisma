@@ -363,6 +363,8 @@ model AlbumCard {
   albumId String   @db.Uuid
   cardId  String   @db.Uuid
   addedAt DateTime @default(now())
+  // carte choisie comme « pièce maîtresse » de l'album (date du choix, sinon null)
+  highlightedAt DateTime?
 
   album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
   card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)

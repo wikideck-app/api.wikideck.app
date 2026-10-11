@@ -145,7 +145,23 @@ export const BEST_FIRST: Prisma.UserCardOrderByWithRelationInput[] = [
   { card: { title: "asc" } },
 ];
 
+// pièces maîtresses : les cartes choisies par le joueur, sinon les plus rares de l'album
 export async function highlightsOf(userId: string, albumIds: string[]) {
+  const chosen = await prisma.albumCard.findMany({
+    where: { albumId: { in: albumIds }, highlightedAt: { not: null } },
+    orderBy: { highlightedAt: "asc" },
+    select: { cardId: true },
+  });
+  const chosenIds = [...new Set(chosen.map((c) => c.cardId))].slice(0, ALBUM_HIGHLIGHTS);
+  if (chosenIds.length) {
+    const rows = await prisma.userCard.findMany({
+      where: { userId, cardId: { in: chosenIds } },
+      include: { card: true },
+    });
+    const byCard = new Map(rows.map((r) => [r.cardId, r]));
+    const ordered = chosenIds.flatMap((id) => byCard.get(id) ?? []);
+    if (ordered.length) return ordered.map((r) => toCollectionCard(r, true));
+  }
   const rows = await prisma.userCard.findMany({
     where: { userId, card: { albumCards: { some: { albumId: { in: albumIds } } } } },
     include: { card: true },

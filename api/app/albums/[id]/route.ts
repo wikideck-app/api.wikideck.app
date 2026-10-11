@@ -120,6 +120,12 @@ export const GET = withRateLimit<Ctx>(
       scope,
       count,
       highlights,
+      highlightIds: (
+        await prisma.albumCard.findMany({
+          where: { albumId: id, highlightedAt: { not: null } },
+          select: { cardId: true },
+        })
+      ).map((c) => c.cardId),
       cards: rows.map((r) => ({ ...toCollectionCard(r, true), ...(readOnly && { favorite: false }) })),
       total,
       page,

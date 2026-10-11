@@ -12,6 +12,7 @@ import {
   type PackKind,
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
+import { textFilter } from "@/lib/albums";
 import { lockedCards } from "@/lib/card-locks";
 import { notifyUser } from "@/lib/notify";
 import { MarketError, auctionInclude, settleDue, takeCard, toAuctionDto } from "@/lib/market";
@@ -62,7 +63,7 @@ export const GET = withRateLimit("market-list", { limit: 90, windowSec: 60 }, as
     ...((rarities.length || query || source) && {
       card: {
         ...(rarities.length && { rarity: { in: rarities } }),
-        ...(query && { title: { contains: query, mode: "insensitive" as const } }),
+        ...(query && { AND: textFilter(query) }),
         ...(source && { source: source === "anime" ? { in: ["ANILIST", "KITSU"] } : "WIKIPEDIA" }),
       },
     }),

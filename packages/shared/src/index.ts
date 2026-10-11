@@ -1634,6 +1634,8 @@ export type AlbumResponse = {
   scope: "own" | "all";
   count: number;
   highlights: CollectionCard[];
+  // cartes de cet album choisies comme pièces maîtresses (vide : sélection automatique)
+  highlightIds: string[];
   cards: CollectionCard[];
   total: number;
   page: number;
