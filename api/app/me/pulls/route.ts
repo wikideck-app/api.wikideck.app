@@ -10,7 +10,7 @@ export const GET = withRateLimit("me-pulls", { limit: 30, windowSec: 60 }, async
   const [pulls, total] = await Promise.all([
     prisma.pull.findMany({
       where: { userId: user.id },
-      include: { card: { select: { title: true, url: true } } },
+      include: { card: { select: { title: true, url: true, rarity: true } } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: PULL_HISTORY_SIZE,
     }),
@@ -28,7 +28,8 @@ export const GET = withRateLimit("me-pulls", { limit: 30, windowSec: 60 }, async
       cardId: pull.cardId,
       title: pull.card.title,
       url: pull.card.url,
-      rarity: pull.rarity,
+      // rareté actuelle de la carte (elle a pu changer depuis le tirage, par exemple après un recalcul)
+      rarity: pull.card.rarity,
     });
     openings.set(pull.openingId, opening);
   }

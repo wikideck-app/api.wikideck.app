@@ -30,6 +30,12 @@ async function main() {
   if (apply) {
     const res = await pool.query(`${ranked} UPDATE "Card" c SET rarity = t.new::"Rarity" FROM target t WHERE c.id = t.id AND t.old <> t.new`);
     console.log(`appliqué : ${res.rowCount} carte(s) mise(s) à jour`);
+    // l'historique des tirages garde la rareté d'origine : on la met en accord avec celle de la carte
+    const pulls = await pool.query(
+      `UPDATE "Pull" p SET rarity = c.rarity FROM "Card" c
+       WHERE c.id = p."cardId" AND c.source = 'ANILIST' AND c."baseCardId" IS NULL AND p.rarity <> c.rarity`,
+    );
+    console.log(`historique des tirages : ${pulls.rowCount} ligne(s) mise(s) à jour`);
   } else {
     console.log("(simulation : relancez avec --apply pour appliquer)");
   }
