@@ -551,6 +551,8 @@ export type PlayerSummary = {
   username: string;
   avatarUrl: string | null;
   isPublic: boolean;
+  /** ami du joueur connecté : peut consulter ses cartes même si son profil est privé (échanges) */
+  friend?: boolean;
 };
 
 export type TradeCard = CardDto & { quantity: number };

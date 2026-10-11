@@ -8,6 +8,7 @@ import {
 import type { User } from "@/generated/prisma/client";
 import { notifyUser } from "@/lib/notify";
 import { prisma } from "@/lib/prisma";
+import { relationsWith } from "@/lib/friends";
 import { isUuid } from "@/lib/tags";
 import { TradeError, expireStale, toTradeDto, tradeInclude } from "@/lib/trades";
 
@@ -57,8 +58,12 @@ export async function proposeTrade(
   if (!recipient) return Response.json({ error: "player_not_found" }, { status: 404 });
   // les cartes que l'autre joueur a lui-même proposées dans l'original peuvent être redemandées
   const visible = new Set(counterOf?.offeredCardIds ?? []);
-  if (!recipient.isPublic && ask.some((a) => !visible.has(a.cardId)))
-    return Response.json({ error: "recipient_private" }, { status: 403 });
+  // profil privé : on ne peut lui demander des cartes que s'il est notre ami (ou si c'est dans son offre)
+  if (!recipient.isPublic && ask.some((a) => !visible.has(a.cardId))) {
+    const relation = await relationsWith(user.id, [recipient.id]);
+    if (relation(recipient.id) !== "friend")
+      return Response.json({ error: "recipient_private" }, { status: 403 });
+  }
 
   const [mineOk, theirsOk] = await Promise.all([owns(user.id, offer), owns(recipient.id, ask)]);
   if (!mineOk) return Response.json({ error: "not_available_mine" }, { status: 400 });

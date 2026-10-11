@@ -36,6 +36,7 @@ export const GET = withRateLimit(
       players: players.map((p) => ({
         ...toPlayer(p),
         relation: relation(p.id),
+        friend: relation(p.id) === "friend",
         ...(byDiscord && { discordName: p.discordName }),
       })),
     });

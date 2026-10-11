@@ -5,6 +5,7 @@ import {
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
 import { rarityFilter, textFilter } from "@/lib/albums";
+import { relationsWith } from "@/lib/friends";
 import { toCardDto } from "@/lib/cards";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -24,8 +25,11 @@ export const GET = withRateLimit<Ctx>(
 
     const player = await prisma.user.findUnique({ where: { id } });
     if (!player) return Response.json({ error: "not_found" }, { status: 404 });
+    // profil privé : seuls ses amis peuvent consulter ses cartes (pour proposer un échange)
     if (!player.isPublic && player.id !== user.id) {
-      return Response.json({ error: "private" }, { status: 403 });
+      const relation = await relationsWith(user.id, [player.id]);
+      if (relation(player.id) !== "friend")
+        return Response.json({ error: "private" }, { status: 403 });
     }
 
     const q = (request.nextUrl.searchParams.get("q") ?? "").trim().slice(0, COLLECTION_SEARCH_MAX);

@@ -4,6 +4,7 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
 import { readJson } from "@/lib/tags";
 import { proposeTrade } from "@/lib/trade-propose";
+import { relationsWith } from "@/lib/friends";
 import { expireStale, toTradeDto, tradeInclude } from "@/lib/trades";
 import { transactionBlock } from "@/lib/trust";
 
@@ -32,8 +33,17 @@ export const GET = withRateLimit("trades-list", { limit: 60, windowSec: 60 }, as
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: box === "history" ? TRADE_HISTORY_SIZE : 100,
   });
+  // la contre-proposition doit savoir si l'autre joueur est un ami (profil privé consultable)
+  const dtos = trades.map((t) => toTradeDto(t, user.id));
+  const relation = await relationsWith(
+    user.id,
+    dtos.map((d) => d.counterparty.id),
+  );
   return Response.json({
-    trades: trades.map((t) => toTradeDto(t, user.id)),
+    trades: dtos.map((d) => ({
+      ...d,
+      counterparty: { ...d.counterparty, friend: relation(d.counterparty.id) === "friend" },
+    })),
   } satisfies TradesResponse);
 });
 
