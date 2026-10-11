@@ -62,10 +62,14 @@ export const GET = withRateLimit("cards-catalog", { limit: 60, windowSec: 60 }, 
   // les versions mythiques ne sont pas des entrées du catalogue
   if (anime) where.push(Prisma.sql`a.source IN ('ANILIST', 'KITSU') AND a."baseCardId" IS NULL`);
   if (rarities.length) where.push(Prisma.sql`a.rarity = ANY(${rarities}::"Rarity"[])`);
-  // chaque mot (3 lettres au moins) doit se trouver n'importe où dans le titre
+  // chaque mot (3 lettres au moins) doit se trouver dans le titre ; pour les animes, aussi dans l'œuvre (description)
   for (const token of searchTokens(query, CATALOG_SEARCH_MIN)) {
     const like = `%${token.replace(/[\\%_]/g, "\\$&")}%`;
-    where.push(Prisma.sql`a.title ILIKE ${like}`);
+    where.push(
+      anime
+        ? Prisma.sql`(a.title ILIKE ${like} OR a.description ILIKE ${like})`
+        : Prisma.sql`a.title ILIKE ${like}`,
+    );
   }
   if (ownership === "mine") where.push(Prisma.sql`uc."cardId" IS NOT NULL`);
   if (ownership === "missing") where.push(Prisma.sql`uc."cardId" IS NULL`);
