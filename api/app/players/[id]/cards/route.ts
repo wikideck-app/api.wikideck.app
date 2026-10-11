@@ -4,6 +4,7 @@ import {
   type CollectionResponse,
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
+import { rarityFilter, textFilter } from "@/lib/albums";
 import { toCardDto } from "@/lib/cards";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -36,11 +37,14 @@ export const GET = withRateLimit<Ctx>(
         : sourceParam === "wikipedia"
           ? "WIKIPEDIA"
           : null;
+    // même recherche que dans sa propre collection : chaque mot dans le titre ou le sous-titre
+    const rarities = rarityFilter(request.nextUrl.searchParams.get("rarity"));
     const where: Prisma.UserCardWhereInput = {
       userId: id,
-      ...((q || source) && {
+      ...((q || source || rarities.length) && {
         card: {
-          ...(q && { title: { contains: q, mode: "insensitive" as const } }),
+          ...(q && { AND: textFilter(q) }),
+          ...(rarities.length && { rarity: { in: rarities } }),
           ...(source && { source }),
         },
       }),
