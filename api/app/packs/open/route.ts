@@ -16,7 +16,7 @@ import { sessionUser } from "@/lib/session";
 import { takeFromPool } from "@/lib/card-pool";
 import { acquireOpenSlot, releaseOpenSlot } from "@/lib/load";
 import { godpackEntries, legendaryEntry } from "@/lib/catalog";
-import { AnilistUnavailableError, drawAnimeCards } from "@/lib/anilist";
+import { AnilistUnavailableError, drawAnimeCards, drawFromDb } from "@/lib/anilist";
 import { avoidDuplicates, duplicateEffects } from "@/lib/duplicates";
 import { cardsFromIds, drawRandomCards, type WikiCard } from "@/lib/wikipedia";
 import { randomInt, randomUUID } from "node:crypto";
@@ -38,9 +38,9 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
   let slotHeld = false;
   try {
     const body = await readJson(request);
-    // paquets anime / manga : réserve séparée, sans booster de chance ni God Pack
+    // paquets anime / manga : réserve séparée, sans God Pack ; le booster de chance vaut pour les deux types
     const anime = body?.kind === "anime";
-    const wantBoost = !anime && body?.boost === true;
+    const wantBoost = body?.boost === true;
     if (wantBoost && user.dropBoosts < 1)
       return Response.json({ error: "no_boost" }, { status: 409 });
 
@@ -96,8 +96,13 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
       boosted = true;
       if (!drawn.some((c) => c.rarity === "LEGENDARY")) {
         try {
-          const entry = await legendaryEntry();
-          const [card] = entry ? await cardsFromIds([entry]) : [];
+          let card: WikiCard | undefined;
+          if (anime) {
+            card = (await drawFromDb("LEGENDARY", new Set(drawn.map((c) => c.pageId)))) ?? undefined;
+          } else {
+            const entry = await legendaryEntry();
+            [card] = entry ? await cardsFromIds([entry]) : [];
+          }
           if (card && !drawn.some((c) => c.pageId === card.pageId)) {
             drawn.sort((a, b) => a.views - b.views);
             drawn[0] = card;

@@ -53,6 +53,7 @@ model User {
   guildMember         GuildMember?
   wishlist            WishlistItem[]
   albums              Album[]
+  pushSubscriptions   PushSubscription[]
   guildWishes         GuildWish[]       @relation("WishOwner")
   guildGifts          GuildWish[]       @relation("WishGiver")
   guildEvents         GuildScoreEvent[]
@@ -669,4 +670,18 @@ model QuestClaim {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questId])
+}
+
+// appareils abonnés aux notifications Web Push
+model PushSubscription {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
