@@ -109,12 +109,12 @@ export const ANIME_ANILIST_SHARE = 0.6;
 
 // paquets anime / manga (AniList) : rang de popularité (1 = le plus aimé) et chance de tirage de chaque rareté
 export const ANIME_DROP_BANDS: { rarity: Rarity; from: number; to: number; weight: number }[] = [
-  { rarity: "COMMON", from: 3501, to: 5000, weight: 0.425 },
-  { rarity: "UNCOMMON", from: 2001, to: 3500, weight: 0.25 },
-  { rarity: "RARE", from: 801, to: 2000, weight: 0.16 },
-  { rarity: "SUPER_RARE", from: 201, to: 800, weight: 0.1 },
-  { rarity: "ULTRA_RARE", from: 41, to: 200, weight: 0.05 },
-  { rarity: "LEGENDARY", from: 1, to: 40, weight: 0.015 },
+  { rarity: "COMMON", from: 4001, to: 5000, weight: 0.425 },
+  { rarity: "UNCOMMON", from: 3001, to: 4000, weight: 0.25 },
+  { rarity: "RARE", from: 1801, to: 3000, weight: 0.16 },
+  { rarity: "SUPER_RARE", from: 901, to: 1800, weight: 0.1 },
+  { rarity: "ULTRA_RARE", from: 351, to: 900, weight: 0.05 },
+  { rarity: "LEGENDARY", from: 1, to: 350, weight: 0.015 },
 ];
 // avec un booster de chance : une légendaire garantie dans le paquet, et plus souvent mythique
 export const BOOST_MYTHIC_RATE = 0.25;

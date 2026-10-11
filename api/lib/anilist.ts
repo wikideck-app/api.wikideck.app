@@ -46,6 +46,10 @@ function pickBand() {
   return BANDS[0];
 }
 
+// les pages en cache gardent le rang ; la rareté se recalcule à la lecture (les tranches ont pu changer)
+const withRarity = (chars: AnimeChar[]): AnimeChar[] =>
+  chars.map((c) => ({ ...c, rarity: rarityOfRank(c.rank) }));
+
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // après un 429, AniList bloque une minute (Retry-After) : on s'arrête, partout, jusque-là
@@ -225,7 +229,7 @@ async function getPage(page: number): Promise<AnimeChar[]> {
   try {
     const cached = await redis.get(pageKey(page));
     if (cached) {
-      const chars = JSON.parse(cached) as AnimeChar[];
+      const chars = withRarity(JSON.parse(cached) as AnimeChar[]);
       remember(page, chars);
       return chars;
     }
@@ -264,7 +268,7 @@ async function cachedPageIn(from: number, to: number): Promise<AnimeChar[] | nul
     const hits: number[] = [];
     raws.forEach((raw, i) => {
       if (raw === null) return;
-      remember(pages[i], JSON.parse(raw) as AnimeChar[]);
+      remember(pages[i], withRarity(JSON.parse(raw) as AnimeChar[]));
       hits.push(pages[i]);
     });
     return hits.length ? fresh(hits[randomInt(hits.length)]) : null;
@@ -423,7 +427,7 @@ export function warmAnimePages() {
           await redis.set(pageKey(page), JSON.stringify(chars), "EX", PAGE_TTL_SEC).catch(() => {});
         } else if (!persisted.has(page)) {
           const raw = await redis.get(pageKey(page));
-          chars = raw ? (JSON.parse(raw) as AnimeChar[]) : null;
+          chars = raw ? withRarity(JSON.parse(raw) as AnimeChar[]) : null;
         }
         if (chars) {
           await persistChars(chars);
