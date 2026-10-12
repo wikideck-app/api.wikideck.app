@@ -2,7 +2,7 @@ import { DROP_RARITIES } from "@wikideck/shared";
 import type { Rarity } from "@/generated/prisma/client";
 
 const API = "https://fr.wikipedia.org/w/api.php";
-const HEADERS = { "User-Agent": "Wikideck/1.0 (https://wikideck.fr)" };
+const HEADERS = { "User-Agent": "Wikideck/1.0 (https://wikideck.app)" };
 
 export type WikiCard = {
   pageId: number;
