@@ -1371,6 +1371,35 @@ export type StaffOverview = {
   tradesPending: number;
   battleGames24h: number;
   flagged: number;
+  /** signalements de messages et rapports de bug à traiter (pastilles du menu) */
+  openReports: number;
+  openBugs: number;
+  /** 7 derniers jours (jour de Paris, du plus ancien au plus récent) */
+  days: string[];
+  series: {
+    newUsers: number[];
+    packs: number[];
+    battles: number[];
+    auctions: number[];
+  };
+  /** évolution en % par rapport à la période précédente (null : pas de base de comparaison) */
+  trends: {
+    newUsers: number | null;
+    packs: number | null;
+    battles: number | null;
+    auctions: number | null;
+  };
+  recent: StaffRecentEvent[];
+};
+
+export type StaffRecentEvent = {
+  kind: "signup" | "pull" | "report" | "bug" | "auction" | "trade";
+  at: string;
+  /** pseudo concerné (inscription, tirage) */
+  name?: string;
+  /** rareté et titre de la carte (tirage, enchère) */
+  rarity?: string;
+  card?: string;
 };
 
 export type StaffMemberRow = {
