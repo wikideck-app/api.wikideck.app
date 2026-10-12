@@ -54,6 +54,7 @@ model User {
   wishlist            WishlistItem[]
   albums              Album[]
   pushSubscriptions   PushSubscription[]
+  importedCards       ImportedCard[]
   guildWishes         GuildWish[]       @relation("WishOwner")
   guildGifts          GuildWish[]       @relation("WishGiver")
   guildEvents         GuildScoreEvent[]
@@ -139,6 +140,7 @@ model Card {
   wishes      GuildWish[]
   wishedBy    WishlistItem[]
   albumCards  AlbumCard[]
+  importedBy  ImportedCard[]
 
   @@index([source, rarity])
 }
@@ -684,4 +686,17 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// cartes déjà importées depuis Wikimaster : une carte ne s'importe qu'une fois par compte, même revendue
+model ImportedCard {
+  userId    String   @db.Uuid
+  cardId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@id([userId, cardId])
+  @@index([cardId])
 }

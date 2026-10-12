@@ -5,7 +5,6 @@ import {
   type ImportBatchResponse,
   type ImportItem,
 } from "@wikideck/shared";
-import { Prisma } from "@/generated/prisma/client";
 import { acquireOpenSlot, releaseOpenSlot } from "@/lib/load";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -109,28 +108,23 @@ export const POST = withRateLimit("import-batch", { limit: 60, windowSec: 60 }, 
             0,
           ) || 1,
         );
-        const key = { userId: user.id, cardId: card.id };
-
-        const first = await prisma.userCard.updateMany({
-          where: { ...key, imported: false },
-          data: { quantity: { increment: quantity }, imported: true },
-        });
-        if (first.count > 0) {
-          imported++;
-          continue;
-        }
-        try {
-          await prisma.userCard.create({ data: { ...key, quantity, imported: true } });
-          imported++;
-        } catch (e) {
-          if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
-          const retry = await prisma.userCard.updateMany({
-            where: { ...key, imported: false },
-            data: { quantity: { increment: quantity }, imported: true },
+        // chaque carte ne s'importe qu'une fois par compte, même si elle a été vendue ou échangée
+        // depuis (sinon : importer, vendre, réimporter... = wikibits à l'infini)
+        const added = await prisma.$transaction(async (tx) => {
+          const first = await tx.importedCard.createMany({
+            data: [{ userId: user.id, cardId: card.id }],
+            skipDuplicates: true,
           });
-          if (retry.count > 0) imported++;
-          else alreadyImported++;
-        }
+          if (first.count === 0) return false;
+          await tx.userCard.upsert({
+            where: { userId_cardId: { userId: user.id, cardId: card.id } },
+            update: { quantity: { increment: quantity }, imported: true },
+            create: { userId: user.id, cardId: card.id, quantity, imported: true },
+          });
+          return true;
+        });
+        if (added) imported++;
+        else alreadyImported++;
       }
     } finally {
       if (granted > imported) {
