@@ -124,7 +124,8 @@ export const POST = withRateLimit(
     try {
       const auction = await prisma.$transaction(async (tx) => {
         const active = await tx.auction.count({ where: { sellerId: user.id, status: "ACTIVE" } });
-        if (active >= MARKET_MAX_LISTINGS) throw new MarketError("too_many_listings", 403);
+        if (active >= MARKET_MAX_LISTINGS + user.auctionSlots)
+          throw new MarketError("too_many_listings", 403);
         await takeCard(tx, user.id, cardId, 1);
         return tx.auction.create({
           data: {

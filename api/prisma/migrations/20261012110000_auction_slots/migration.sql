@@ -1,0 +1,5 @@
+-- AlterEnum
+ALTER TYPE "ShopItemKind" ADD VALUE 'AUCTION_SLOT';
+
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "auctionSlots" INTEGER NOT NULL DEFAULT 0;

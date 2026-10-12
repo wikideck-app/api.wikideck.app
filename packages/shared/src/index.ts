@@ -584,7 +584,9 @@ export type CreateTradeBody = {
 
 export const WIKIBITS_START = 500;
 export const MARKET_FEE_PERCENT = 5;
+// ventes en cours : MARKET_MAX_LISTINGS gratuites, plus les emplacements achetés en boutique (MARKET_EXTRA_MAX au plus)
 export const MARKET_MAX_LISTINGS = 10;
+export const MARKET_EXTRA_MAX = 40;
 export const MARKET_MAX_PRICE = 1_000_000;
 export const MARKET_DURATIONS = [1, 6, 12, 24, 48] as const;
 export const BID_EXTEND_WINDOW_S = 10;
@@ -1693,6 +1695,7 @@ export const SHOP_KINDS = [
   "DUPLICATE_REDUCTION",
   "WISHLIST_SLOT",
   "ALBUM_SLOT",
+  "AUCTION_SLOT",
 ] as const;
 // réduction des doublons : chance de remplacer chaque carte déjà possédée (la protection les remplace toutes)
 export const DUPLICATE_REDUCTION_CHANCE = 0.5;
