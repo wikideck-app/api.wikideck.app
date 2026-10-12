@@ -30,6 +30,8 @@ model User {
   albumSlots          Int        @default(0)
   // emplacements de vente aux enchères achetés en boutique (s'ajoutent à MARKET_MAX_LISTINGS)
   auctionSlots        Int        @default(0)
+  // fin de la recharge accélérée des paquets (article de la boutique, PACK_SPEEDUP)
+  packSpeedUntil      DateTime?
   animePacksRefilledAt DateTime  @default(now())
   cards           UserCard[]
   tags            Tag[]
@@ -616,6 +618,7 @@ enum ShopItemKind {
   WISHLIST_SLOT
   ALBUM_SLOT
   AUCTION_SLOT
+  PACK_SPEEDUP
 }
 
 // boutique : articles payés en wikibits, créés et modifiés par les administrateurs

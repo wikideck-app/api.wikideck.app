@@ -58,7 +58,7 @@ export const POST = withRateLimit<Ctx>(
 
         const current = await tx.user.findUniqueOrThrow({
           where: { id: user.id },
-          select: { dupReduceUntil: true, wishlistSlots: true, albumSlots: true, auctionSlots: true },
+          select: { dupReduceUntil: true, packSpeedUntil: true, wishlistSlots: true, albumSlots: true, auctionSlots: true },
         });
         // la liste d'envies ne grandit pas à l'infini
         if (item.kind === "WISHLIST_SLOT" && current.wishlistSlots + item.amount > WISHLIST_EXTRA_MAX)
@@ -71,7 +71,7 @@ export const POST = withRateLimit<Ctx>(
           where: { id: user.id, wikibits: { gte: item.price } },
           data: {
             wikibits: { decrement: item.price },
-            ...grantOf(item.kind, item.amount, current.dupReduceUntil),
+            ...grantOf(item.kind, item.amount, current),
           },
         });
         if (paid.count === 0) throw new ShopError("insufficient_funds", 409);

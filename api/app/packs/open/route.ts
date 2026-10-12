@@ -44,14 +44,15 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
     if (wantBoost && user.dropBoosts < 1)
       return Response.json({ error: "no_boost" }, { status: 409 });
 
-    const wikiState = refill(user);
-    const animeState = refill({ packs: user.animePacks, packsRefilledAt: user.animePacksRefilledAt });
+    const speed = user.packSpeedUntil;
+    const wikiState = refill(user, new Date(), speed);
+    const animeState = refill({ packs: user.animePacks, packsRefilledAt: user.animePacksRefilledAt }, new Date(), speed);
     const state = anime ? animeState : wikiState;
     // réserve vide : un paquet bonus (parrainage) prend le relais, sans toucher à la recharge
     const spendBonus = state.packs < 1 && user.bonusPacks >= 1;
     if (state.packs < 1 && !spendBonus)
       return Response.json(
-        { error: "no_packs", ...status(wikiState), anime: status(animeState), bonus: user.bonusPacks },
+        { error: "no_packs", ...status(wikiState, new Date(), speed), anime: status(animeState, new Date(), speed), bonus: user.bonusPacks },
         { status: 403 },
       );
 
@@ -221,8 +222,8 @@ export const POST = withRateLimit("packs-open", { limit: 6, windowSec: 60 }, asy
 
     checkAchievements(user.id);
     return Response.json({
-      ...status(anime ? wikiState : next),
-      anime: status(anime ? next : animeState),
+      ...status(anime ? wikiState : next, new Date(), speed),
+      anime: status(anime ? next : animeState, new Date(), speed),
       bonus: user.bonusPacks - (spendBonus ? 1 : 0),
       boosts: user.dropBoosts - (boosted ? 1 : 0),
       duplicateShield: user.dupShieldPacks - (shieldUsed ? 1 : 0),

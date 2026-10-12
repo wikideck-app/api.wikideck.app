@@ -132,6 +132,8 @@ export const API_VERSION = 1;
 export const GODPACK_RATE = 0.0005;
 // un paquet toutes les 10 minutes
 export const PACK_REGEN_MS = 10 * 60 * 1000;
+// article « recharge accélérée » de la boutique : le délai entre deux paquets est divisé par ce nombre
+export const PACK_SPEEDUP_DIVISOR = 2;
 
 export type CardDto = {
   id: string;
@@ -167,6 +169,8 @@ export type PackStatus = {
   duplicateShield?: number;
   /** fin de la réduction temporaire des doublons (ISO), null = inactive */
   duplicateReductionUntil?: string | null;
+  /** fin de la recharge accélérée des paquets (ISO), null = inactive */
+  speedUpUntil?: string | null;
 };
 
 export type OpenPackResponse = PackStatus & {
@@ -1696,6 +1700,7 @@ export const SHOP_KINDS = [
   "WISHLIST_SLOT",
   "ALBUM_SLOT",
   "AUCTION_SLOT",
+  "PACK_SPEEDUP",
 ] as const;
 // réduction des doublons : chance de remplacer chaque carte déjà possédée (la protection les remplace toutes)
 export const DUPLICATE_REDUCTION_CHANCE = 0.5;

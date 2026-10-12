@@ -129,7 +129,8 @@ export function parseShopInput(body: unknown): ShopInputData | null {
 export const grantOf = (
   kind: ShopItemKind,
   amount: number,
-  reduceUntil: Date | null = null,
+  // fins déjà en cours : un nouvel achat prolonge la durée restante au lieu de la remplacer
+  active: { dupReduceUntil?: Date | null; packSpeedUntil?: Date | null } = {},
   now = new Date(),
 ) =>
   kind === "WIKIPEDIA_PACKS"
@@ -146,9 +147,16 @@ export const grantOf = (
               ? { albumSlots: { increment: amount } }
               : kind === "AUCTION_SLOT"
                 ? { auctionSlots: { increment: amount } }
-                : {
-              // amount = heures
-              dupReduceUntil: new Date(
-                Math.max(now.getTime(), reduceUntil?.getTime() ?? 0) + amount * 3_600_000,
-              ),
-            };
+                : kind === "PACK_SPEEDUP"
+                  ? {
+                      // amount = heures
+                      packSpeedUntil: new Date(
+                        Math.max(now.getTime(), active.packSpeedUntil?.getTime() ?? 0) + amount * 3_600_000,
+                      ),
+                    }
+                  : {
+                      // amount = heures
+                      dupReduceUntil: new Date(
+                        Math.max(now.getTime(), active.dupReduceUntil?.getTime() ?? 0) + amount * 3_600_000,
+                      ),
+                    };

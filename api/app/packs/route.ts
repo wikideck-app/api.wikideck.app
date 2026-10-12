@@ -13,8 +13,9 @@ export const GET = withRateLimit("packs-status", { limit: 60, windowSec: 60 }, a
   warmPool();
   warmAnimePages();
 
-  const state = refill(user);
-  const anime = refill({ packs: user.animePacks, packsRefilledAt: user.animePacksRefilledAt });
+  const speed = user.packSpeedUntil;
+  const state = refill(user, new Date(), speed);
+  const anime = refill({ packs: user.animePacks, packsRefilledAt: user.animePacksRefilledAt }, new Date(), speed);
   const data = {
     ...(state !== user && state),
     ...(anime.packs !== user.animePacks || anime.packsRefilledAt !== user.animePacksRefilledAt
@@ -23,9 +24,9 @@ export const GET = withRateLimit("packs-status", { limit: 60, windowSec: 60 }, a
   };
   if (Object.keys(data).length) await prisma.user.update({ where: { id: user.id }, data });
   return Response.json({
-    ...status(state),
+    ...status(state, new Date(), speed),
     boosts: user.dropBoosts,
-    anime: status(anime),
+    anime: status(anime, new Date(), speed),
     bonus: user.bonusPacks,
     duplicateShield: user.dupShieldPacks,
     duplicateReductionUntil:
