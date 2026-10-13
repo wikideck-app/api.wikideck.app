@@ -214,13 +214,30 @@ export const TAG_MAX_PER_USER = 30;
 
 export type TagDto = { id: string; name: string; color: TagColor };
 
-export type CollectionSort = "recent" | "oldest" | "rarity_desc" | "rarity_asc" | "alpha";
+export type CollectionSort =
+  | "recent"
+  | "oldest"
+  | "rarity_desc"
+  | "rarity_asc"
+  | "alpha"
+  | "alpha_desc"
+  | "quantity_desc"
+  | "quantity_asc"
+  | "views_desc"
+  | "views_asc"
+  | "favorites";
 export const COLLECTION_SORTS: { value: CollectionSort; label: string }[] = [
   { value: "recent", label: "Plus récentes" },
   { value: "oldest", label: "Moins récentes" },
   { value: "rarity_desc", label: "Rareté : décroissante" },
   { value: "rarity_asc", label: "Rareté : croissante" },
   { value: "alpha", label: "Alphabétique (A → Z)" },
+  { value: "alpha_desc", label: "Alphabétique (Z → A)" },
+  { value: "quantity_desc", label: "Doublons d’abord (exemplaires décroissants)" },
+  { value: "quantity_asc", label: "Exemplaires uniques d’abord" },
+  { value: "views_desc", label: "Popularité : décroissante" },
+  { value: "views_asc", label: "Popularité : croissante" },
+  { value: "favorites", label: "Favorites d’abord" },
 ];
 
 export type CollectionCard = CardDto & {
