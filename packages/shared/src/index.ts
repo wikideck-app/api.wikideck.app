@@ -610,7 +610,8 @@ export const MARKET_MAX_LISTINGS = 10;
 export const MARKET_EXTRA_MAX = 40;
 export const MARKET_MAX_PRICE = 1_000_000;
 export const MARKET_DURATIONS = [1, 6, 12, 24, 48] as const;
-export const BID_EXTEND_WINDOW_S = 10;
+// anti-snipe : une mise dans les BID_EXTEND_WINDOW_S dernières secondes remet le temps restant à BID_EXTEND_S secondes
+export const BID_EXTEND_WINDOW_S = 20;
 export const BID_EXTEND_S = 60;
 export const MARKET_PAGE_SIZE = 24;
 export const AUCTION_BIDS_SHOWN = 50;

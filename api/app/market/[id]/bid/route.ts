@@ -56,7 +56,8 @@ export const POST = withRateLimit<Ctx>(
             currentBid: amount,
             leaderId: user.id,
             bidCount: { increment: 1 },
-            ...(extended && { endsAt: new Date(a.endsAt.getTime() + BID_EXTEND_S * 1000) }),
+            // anti-snipe : le temps restant remonte à BID_EXTEND_S secondes (il ne diminue jamais, il restait au plus BID_EXTEND_WINDOW_S)
+            ...(extended && { endsAt: new Date(now.getTime() + BID_EXTEND_S * 1000) }),
           },
         });
         if (won.count === 0) throw new MarketError("outbid");
