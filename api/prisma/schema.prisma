@@ -190,6 +190,7 @@ model Pull {
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
+  @@index([cardId])
 }
 
 enum TradeStatus {
