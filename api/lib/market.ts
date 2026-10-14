@@ -38,7 +38,7 @@ export const auctionInclude = (viewerId: string) =>
     bids: { where: { bidderId: viewerId }, select: { id: true }, take: 1 },
   }) satisfies Prisma.AuctionInclude;
 
-export function toAuctionDto(a: AuctionWithRelations, viewerId: string): AuctionDto {
+export function toAuctionDto(a: AuctionWithRelations, viewerId: string, owned = 0): AuctionDto {
   return {
     id: a.id,
     card: toCardDto(a.card),
@@ -55,6 +55,7 @@ export function toAuctionDto(a: AuctionWithRelations, viewerId: string): Auction
       isSeller: a.sellerId === viewerId,
       isLeader: a.leaderId === viewerId,
       hasBid: (a.bids?.length ?? 0) > 0,
+      owned,
     },
   };
 }

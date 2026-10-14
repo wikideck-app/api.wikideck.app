@@ -8,6 +8,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { rarityFilter, textFilter } from "@/lib/albums";
 import { COLLECTION_ORDER } from "@/lib/card-order";
 import { relationsWith } from "@/lib/friends";
+import { quantitiesOf } from "@/lib/ownership";
 import { toCardDto } from "@/lib/cards";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -69,8 +70,9 @@ export const GET = withRateLimit<Ctx>(
       skip: (page - 1) * COLLECTION_PAGE_SIZE,
       take: COLLECTION_PAGE_SIZE,
     });
+    const mine = await quantitiesOf(user.id, owned.map((o) => o.cardId));
     return Response.json({
-      cards: owned.map((o) => ({ ...toCardDto(o.card), quantity: o.quantity, tags: [] })),
+      cards: owned.map((o) => ({ ...toCardDto(o.card), quantity: o.quantity, viewerOwned: mine.get(o.cardId) ?? 0, tags: [] })),
       total,
       page,
       pageSize: COLLECTION_PAGE_SIZE,

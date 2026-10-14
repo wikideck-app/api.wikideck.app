@@ -1,5 +1,6 @@
 import { AUCTION_BIDS_SHOWN, type AuctionDetail } from "@wikideck/shared";
 import { auctionInclude, settleDue, toAuctionDto } from "@/lib/market";
+import { quantitiesOf } from "@/lib/ownership";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { currentUser } from "@/lib/session";
@@ -38,6 +39,7 @@ export const GET = withRateLimit<Ctx>(
     const dto = toAuctionDto(
       { ...rest, bids: bids.filter((b) => b.bidderId === user.id) },
       user.id,
+      (await quantitiesOf(user.id, [auction.cardId])).get(auction.cardId) ?? 0,
     );
     return Response.json({
       ...dto,

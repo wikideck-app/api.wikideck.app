@@ -15,6 +15,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { textFilter } from "@/lib/albums";
 import { lockedCards } from "@/lib/card-locks";
 import { notifyUser } from "@/lib/notify";
+import { quantitiesOf } from "@/lib/ownership";
 import { MarketError, auctionInclude, settleDue, takeCard, toAuctionDto } from "@/lib/market";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -81,8 +82,9 @@ export const GET = withRateLimit("market-list", { limit: 90, windowSec: 60 }, as
     take: MARKET_PAGE_SIZE,
   });
 
+  const owned = await quantitiesOf(user.id, [...new Set(rows.map((a) => a.cardId))]);
   return Response.json({
-    auctions: rows.map((a) => toAuctionDto(a, user.id)),
+    auctions: rows.map((a) => toAuctionDto(a, user.id, owned.get(a.cardId) ?? 0)),
     total,
     page,
     pageSize: MARKET_PAGE_SIZE,
@@ -143,7 +145,8 @@ export const POST = withRateLimit(
       });
       for (const { userId } of wishers)
         notifyUser(userId, { type: "wishlist", auction: auction.id, card: auction.card.title });
-      return Response.json(toAuctionDto(auction, user.id) satisfies AuctionDto, { status: 201 });
+      const left = (await quantitiesOf(user.id, [cardId])).get(cardId) ?? 0;
+      return Response.json(toAuctionDto(auction, user.id, left) satisfies AuctionDto, { status: 201 });
     } catch (e) {
       if (e instanceof MarketError) return Response.json({ error: e.code }, { status: e.status });
       throw e;

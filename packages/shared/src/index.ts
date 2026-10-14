@@ -243,6 +243,10 @@ export const COLLECTION_SORTS: { value: CollectionSort; label: string }[] = [
 export type CollectionCard = CardDto & {
   quantity: number;
   inAlbum?: boolean;
+  /** échange : exemplaires que l'autre joueur possède déjà (collection consultée avec ?with=) */
+  otherOwned?: number;
+  /** échange : exemplaires que le joueur connecté possède déjà (cartes d'un autre joueur) */
+  viewerOwned?: number;
   favorite?: boolean;
   tags: TagDto[];
   protectedReason?: string | null;
@@ -578,7 +582,8 @@ export type PlayerSummary = {
   friend?: boolean;
 };
 
-export type TradeCard = CardDto & { quantity: number };
+/** owned : exemplaires que le joueur qui reçoit cette carte possède déjà (absent si inconnu : profil privé) */
+export type TradeCard = CardDto & { quantity: number; owned?: number };
 
 export type TradeDto = {
   id: string;
@@ -642,7 +647,8 @@ export type AuctionDto = {
   endsAt: string;
   status: AuctionStatus;
   createdAt: string;
-  viewer: { isSeller: boolean; isLeader: boolean; hasBid: boolean };
+  /** owned : exemplaires de cette carte que le joueur possède déjà (0 : aucun) */
+  viewer: { isSeller: boolean; isLeader: boolean; hasBid: boolean; owned: number };
 };
 
 export type MarketView = "all" | "selling" | "bidding";

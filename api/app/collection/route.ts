@@ -6,7 +6,6 @@ import {
   RARITIES,
   COLLECTION_SORTS,
   type CollectionResponse,
-  type CollectionSort,
   type PackKind,
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
@@ -16,6 +15,7 @@ import { toCardDto } from "@/lib/cards";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
 import { COLLECTION_ORDER as ORDER } from "@/lib/card-order";
+import { canSeeCollection, quantitiesOf } from "@/lib/ownership";
 import { currentUser } from "@/lib/session";
 import { isUuid, toTagDto } from "@/lib/tags";
 
@@ -113,11 +113,21 @@ export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, asy
     return prices?.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null;
   };
 
+  // échange : ce que l'autre joueur possède déjà de ces cartes (seulement si on peut voir sa collection)
+  const withParam = params.get("with");
+  let theirs: Map<string, number> | null = null;
+  if (isUuid(withParam) && withParam !== user.id) {
+    const other = await prisma.user.findUnique({ where: { id: withParam }, select: { id: true, isPublic: true } });
+    if (other && (await canSeeCollection(user.id, other)))
+      theirs = await quantitiesOf(other.id, owned.map((o) => o.cardId));
+  }
+
   return Response.json({
     favoritesOnly,
     cards: owned.map((o) => ({
       ...toCardDto(o.card),
       quantity: o.quantity,
+      ...(theirs && { otherOwned: theirs.get(o.cardId) ?? 0 }),
       favorite: o.favorite,
       inAlbum: albumed.has(o.cardId),
       tags: o.tags.map(toTagDto),

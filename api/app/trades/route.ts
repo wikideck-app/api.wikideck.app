@@ -5,6 +5,7 @@ import { currentUser } from "@/lib/session";
 import { readJson } from "@/lib/tags";
 import { proposeTrade } from "@/lib/trade-propose";
 import { relationsWith } from "@/lib/friends";
+import { quantitiesOf } from "@/lib/ownership";
 import { expireStale, toTradeDto, tradeInclude } from "@/lib/trades";
 import { transactionBlock } from "@/lib/trust";
 
@@ -39,11 +40,29 @@ export const GET = withRateLimit("trades-list", { limit: 60, windowSec: 60 }, as
     user.id,
     dtos.map((d) => d.counterparty.id),
   );
+  // cartes que celui qui les reçoit possède déjà : moi pour ce que je reçois, l'autre joueur (si on peut voir
+  // sa collection) pour ce que je donne
+  const cardIds = [...new Set(dtos.flatMap((d) => [...d.give, ...d.receive].map((c) => c.id)))];
+  const mine = await quantitiesOf(user.id, cardIds);
+  const visible = new Map(trades.map((t) => [t.id, t.proposerId === user.id ? t.recipient : t.proposer]));
+  const theirs = new Map<string, Map<string, number>>();
+  for (const d of dtos) {
+    const other = visible.get(d.id);
+    const cp = d.counterparty.id;
+    if (!other || theirs.has(cp)) continue;
+    const seen = other.isPublic || relation(cp) === "friend";
+    if (seen) theirs.set(cp, await quantitiesOf(cp, cardIds));
+  }
   return Response.json({
-    trades: dtos.map((d) => ({
-      ...d,
-      counterparty: { ...d.counterparty, friend: relation(d.counterparty.id) === "friend" },
-    })),
+    trades: dtos.map((d) => {
+      const theirCards = theirs.get(d.counterparty.id);
+      return {
+        ...d,
+        give: d.give.map((c) => (theirCards ? { ...c, owned: theirCards.get(c.id) ?? 0 } : c)),
+        receive: d.receive.map((c) => ({ ...c, owned: mine.get(c.id) ?? 0 })),
+        counterparty: { ...d.counterparty, friend: relation(d.counterparty.id) === "friend" },
+      };
+    }),
   } satisfies TradesResponse);
 });
 
