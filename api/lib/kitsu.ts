@@ -181,7 +181,19 @@ export function warmKitsu() {
       const deadline = Date.now() + RUN_MS;
       while (Date.now() < deadline) {
         const { chars, last } = await fetchKitsuPage(offset);
-        const fresh = chars.filter((c) => !known.has(norm(c.name)));
+        const candidates = chars.filter((c) => !known.has(norm(c.name)));
+        // un personnage fusionné avec celui d'AniList (CardAlias) ne revient pas
+        const merged = candidates.length
+          ? new Set(
+              (
+                await prisma.cardAlias.findMany({
+                  where: { pageId: { in: candidates.map((c) => KITSU_ID_OFFSET + c.id) } },
+                  select: { pageId: true },
+                })
+              ).map((a) => a.pageId),
+            )
+          : new Set<number>();
+        const fresh = candidates.filter((c) => !merged.has(KITSU_ID_OFFSET + c.id));
         if (fresh.length) {
           await prisma.card.createMany({ data: fresh.map(toKitsuCard), skipDuplicates: true });
         }

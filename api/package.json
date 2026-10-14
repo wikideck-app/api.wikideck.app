@@ -16,7 +16,9 @@
     "postinstall": "prisma generate",
     "catalog:import": "tsx scripts/import-catalog.ts",
     "images:backfill": "tsx scripts/backfill-images.ts",
-    "anime:rerank": "tsx scripts/rerank-anilist.ts"
+    "anime:rerank": "tsx scripts/rerank-anilist.ts",
+    "anime:crawl": "tsx scripts/crawl-anilist.ts",
+    "anime:merge": "tsx scripts/merge-anime-duplicates.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

@@ -146,6 +146,7 @@ model Card {
   wishedBy    WishlistItem[]
   albumCards  AlbumCard[]
   importedBy  ImportedCard[]
+  aliases     CardAlias[]
 
   @@index([source, rarity])
 }
@@ -727,4 +728,16 @@ model PackShare {
 
   @@index([userId, key])
   @@index([userId, createdAt])
+}
+
+// personnage d'anime déjà présent sous un autre nom (AniList / Kitsu) et fusionné dans une seule carte : sert à ne pas
+// ré-importer la carte supprimée (pageId d'origine) quand on explore de nouveau Kitsu
+model CardAlias {
+  pageId    Int      @id
+  cardId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
 }
