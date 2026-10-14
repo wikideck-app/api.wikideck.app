@@ -12,6 +12,13 @@ const words = (s: string) => fold(s).split(/[^a-z0-9]+/).filter(Boolean);
 const long = (w: string) => w.replace(/ou/g, "o").replace(/oo/g, "o").replace(/uu/g, "u").replace(/aa/g, "a").replace(/ee/g, "e").replace(/ii/g, "i");
 
 export const nameTokens = (name: string) => words(name);
+
+/** sans les initiales (« D. » dans « Monkey D. Luffy ») quand il reste au moins deux mots : « Luffy Monkey » = « Luffy Monkey D. » */
+const core = (name: string) => {
+  const w = words(name).map(long);
+  const rest = w.filter((t) => t.length > 1);
+  return (rest.length >= 2 ? rest : w).sort().join(" ");
+};
 export const nameKey = (name: string) => words(name).sort().join(" ");
 export const nameKeyLoose = (name: string) => words(name).map(long).sort().join(" ");
 
@@ -34,10 +41,18 @@ export function sameSeries(a: string | null, b: string | null): boolean {
   return common / new Set([...sx, ...sy]).size >= 0.5;
 }
 
+/** même œuvre à la lettre près (mots identiques, ponctuation et articles mis à part) */
+const sameSeriesStrict = (a: string | null, b: string | null) => {
+  if (!a || !b) return false;
+  const x = [...new Set(seriesTokens(a))].sort().join(" ");
+  return x !== "" && x === [...new Set(seriesTokens(b))].sort().join(" ");
+};
+
 export type Match = "sure" | "maybe" | null;
 
 /**
- * - sure : même nom (mots dans le désordre, voyelles longues rapprochées) et même œuvre ;
+ * - sure : même nom (mots dans le désordre, voyelles longues rapprochées, initiales ignorées) et même œuvre ;
+ * - sure aussi : le nom de l'un (au moins deux mots) est inclus dans celui de l'autre et l'œuvre est exactement la même ;
  * - maybe : le nom de l'un est inclus dans celui de l'autre (« Luffy » / « Monkey D. Luffy ») dans la même œuvre.
  */
 export function matchCharacters(a: Side, b: Side): Match {
@@ -45,10 +60,14 @@ export function matchCharacters(a: Side, b: Side): Match {
   const ka = nameKeyLoose(a.title);
   const kb = nameKeyLoose(b.title);
   if (ka && ka === kb) return "sure";
+  if (core(a.title) && core(a.title) === core(b.title)) return "sure";
   const ta = new Set(nameTokens(a.title).map(long));
   const tb = new Set(nameTokens(b.title).map(long));
   const [small, big] = ta.size <= tb.size ? [ta, tb] : [tb, ta];
   const meaningful = [...small].filter((w) => w.length >= 3);
-  if (meaningful.length >= 1 && [...small].every((w) => big.has(w))) return "maybe";
+  if (meaningful.length >= 1 && [...small].every((w) => big.has(w))) {
+    // « Lala Deviluke » dans « Lala Satalin Deviluke », même œuvre : le nom court a au moins deux mots
+    return meaningful.length >= 2 && sameSeriesStrict(a.series, b.series) ? "sure" : "maybe";
+  }
   return null;
 }
