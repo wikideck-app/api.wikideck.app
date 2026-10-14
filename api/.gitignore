@@ -13,3 +13,6 @@ next-env.d.ts
 .anilist-crawl.json
 anime-duplicates.csv
 anime-merge-backup.jsonl
+
+# fichiers de verrou de LibreOffice (CSV ouverts)
+.~lock.*#
