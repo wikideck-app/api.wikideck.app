@@ -217,6 +217,8 @@ model Trade {
   createdAt   DateTime    @default(now())
   expiresAt   DateTime
   respondedAt DateTime?
+  /// mot d'accompagnement de la proposition
+  message     String?
 
   proposer  User        @relation("TradeProposer", fields: [proposerId], references: [id], onDelete: Cascade)
   recipient User        @relation("TradeRecipient", fields: [recipientId], references: [id], onDelete: Cascade)

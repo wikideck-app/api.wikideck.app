@@ -15,24 +15,10 @@ import { loadProtection, protectionReason } from "@/lib/bulk-recycle";
 import { toCardDto } from "@/lib/cards";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit } from "@/lib/rate-limit";
+import { COLLECTION_ORDER as ORDER } from "@/lib/card-order";
 import { currentUser } from "@/lib/session";
 import { isUuid, toTagDto } from "@/lib/tags";
 
-const ORDER: Record<CollectionSort, Prisma.UserCardOrderByWithRelationInput[]> = {
-  recent: [{ createdAt: "desc" }, { id: "asc" }],
-  oldest: [{ createdAt: "asc" }, { id: "asc" }],
-  rarity_desc: [{ card: { rarity: "desc" } }, { card: { views: "desc" } }, { id: "asc" }],
-  rarity_asc: [{ card: { rarity: "asc" } }, { card: { views: "asc" } }, { id: "asc" }],
-  alpha: [{ card: { title: "asc" } }, { id: "asc" }],
-  alpha_desc: [{ card: { title: "desc" } }, { id: "asc" }],
-  // doublons : le plus d'exemplaires d'abord, puis par rareté
-  quantity_desc: [{ quantity: "desc" }, { card: { rarity: "desc" } }, { card: { views: "desc" } }, { id: "asc" }],
-  quantity_asc: [{ quantity: "asc" }, { card: { rarity: "desc" } }, { card: { views: "desc" } }, { id: "asc" }],
-  // popularité : fréquentation de l'article (Wikipédia) ou favoris du personnage (anime et manga)
-  views_desc: [{ card: { views: "desc" } }, { id: "asc" }],
-  views_asc: [{ card: { views: "asc" } }, { id: "asc" }],
-  favorites: [{ favorite: "desc" }, { card: { rarity: "desc" } }, { card: { views: "desc" } }, { id: "asc" }],
-};
 
 export const GET = withRateLimit("collection", { limit: 60, windowSec: 60 }, async (request) => {
   const user = await currentUser();

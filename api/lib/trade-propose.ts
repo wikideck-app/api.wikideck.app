@@ -1,6 +1,7 @@
 import {
   TRADE_EXPIRY_DAYS,
   TRADE_MAX_CARDS,
+  TRADE_MESSAGE_MAX,
   TRADE_MAX_PENDING,
   TRADE_MAX_PENDING_PER_PLAYER,
   type TradeLine,
@@ -26,6 +27,15 @@ export function parseLines(value: unknown): TradeLine[] | null {
   return lines;
 }
 
+// mot d'accompagnement : texte simple, sans retours à la ligne en trop, 200 caractères au plus ; null si vide
+export function parseMessage(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return undefined;
+  const clean = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if ([...clean].length > TRADE_MESSAGE_MAX) return undefined;
+  return clean || null;
+}
+
 const owns = async (userId: string, lines: TradeLine[]) => {
   if (!lines.length) return true;
   const rows = await prisma.userCard.findMany({
@@ -47,8 +57,9 @@ export async function proposeTrade(
 ): Promise<Response> {
   const offer = parseLines(body.offer);
   const ask = parseLines(body.request);
+  const message = parseMessage(body.message);
   const recipientId = counterOf ? counterOf.proposerId : body.recipientId;
-  if (!isUuid(recipientId) || !offer || !ask || offer.length + ask.length === 0)
+  if (!isUuid(recipientId) || !offer || !ask || message === undefined || offer.length + ask.length === 0)
     return Response.json({ error: "invalid" }, { status: 400 });
   if (recipientId === user.id) return Response.json({ error: "self_trade" }, { status: 400 });
   if (offer.some((o) => ask.some((a) => a.cardId === o.cardId)))
@@ -100,6 +111,7 @@ export async function proposeTrade(
           proposerId: user.id,
           recipientId: recipient.id,
           counterOfId: counterOf?.id ?? null,
+          message,
           expiresAt: new Date(Date.now() + TRADE_EXPIRY_DAYS * 86_400_000),
           items: {
             create: [

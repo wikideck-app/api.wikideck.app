@@ -590,17 +590,21 @@ export type TradeDto = {
   counterparty: PlayerSummary;
   give: TradeCard[];
   receive: TradeCard[];
+  /** mot d'accompagnement de la proposition (facultatif) */
+  message: string | null;
 };
 
 export type TradeBox = "incoming" | "outgoing" | "history";
 export type TradesResponse = { trades: TradeDto[] };
 
 export type TradeLine = { cardId: string; quantity: number };
-export type CounterTradeBody = { offer: TradeLine[]; request: TradeLine[] };
+export const TRADE_MESSAGE_MAX = 200;
+export type CounterTradeBody = { offer: TradeLine[]; request: TradeLine[]; message?: string };
 export type CreateTradeBody = {
   recipientId: string;
   offer: TradeLine[];
   request: TradeLine[];
+  message?: string;
 };
 
 export const WIKIBITS_START = 500;

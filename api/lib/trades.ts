@@ -47,6 +47,7 @@ export function toTradeDto(trade: TradeWithRelations, viewerId: string): TradeDt
     counterparty: toPlayer(isProposer ? trade.recipient : trade.proposer),
     give: isProposer ? offer : request,
     receive: isProposer ? request : offer,
+    message: trade.message,
   };
 }
 

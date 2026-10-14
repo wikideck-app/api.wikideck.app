@@ -1,10 +1,12 @@
 import {
   COLLECTION_PAGE_SIZE,
   COLLECTION_SEARCH_MAX,
+  COLLECTION_SORTS,
   type CollectionResponse,
 } from "@wikideck/shared";
 import type { Prisma } from "@/generated/prisma/client";
 import { rarityFilter, textFilter } from "@/lib/albums";
+import { COLLECTION_ORDER } from "@/lib/card-order";
 import { relationsWith } from "@/lib/friends";
 import { toCardDto } from "@/lib/cards";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +45,8 @@ export const GET = withRateLimit<Ctx>(
           : null;
     // même recherche que dans sa propre collection : chaque mot dans le titre ou le sous-titre
     const rarities = rarityFilter(request.nextUrl.searchParams.get("rarity"));
+    const sortParam = request.nextUrl.searchParams.get("sort");
+    const sort = COLLECTION_SORTS.find((s) => s.value === sortParam)?.value ?? "rarity_desc";
     const where: Prisma.UserCardWhereInput = {
       userId: id,
       ...((q || source || rarities.length) && {
@@ -61,7 +65,7 @@ export const GET = withRateLimit<Ctx>(
     const owned = await prisma.userCard.findMany({
       where,
       include: { card: true },
-      orderBy: [{ card: { rarity: "desc" } }, { card: { views: "desc" } }, { id: "asc" }],
+      orderBy: COLLECTION_ORDER[sort],
       skip: (page - 1) * COLLECTION_PAGE_SIZE,
       take: COLLECTION_PAGE_SIZE,
     });
