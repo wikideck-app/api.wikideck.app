@@ -414,7 +414,8 @@ export const THEME_STORAGE_KEY = "wikideck:theme";
 
 export type UserSettings = {
   appearance: { theme: ThemeChoice };
-  animations: { skip: boolean; speed: AnimationSpeed };
+  /** summary : écran récapitulatif de toutes les cartes à la fin d'un tirage */
+  animations: { skip: boolean; speed: AnimationSpeed; summary: boolean };
   performance: { quality: GraphicsQuality; fps: FrameRate };
   collection: {
     defaultSort: DefaultSort;
@@ -427,7 +428,7 @@ export type UserSettings = {
 
 export const DEFAULT_SETTINGS: UserSettings = {
   appearance: { theme: "system" },
-  animations: { skip: false, speed: 1 },
+  animations: { skip: false, speed: 1, summary: true },
   performance: { quality: "high", fps: 60 },
   collection: { defaultSort: "rarity", protectedWords: [] },
   accessibility: { readableFont: false, highContrast: false },
@@ -502,6 +503,7 @@ export function normalizeSettings(raw: unknown): UserSettings {
     animations: {
       skip: flag(animations.skip, d.animations.skip),
       speed: oneOf<AnimationSpeed>(animations.speed, [1, 2, 3], d.animations.speed),
+      summary: flag(animations.summary, d.animations.summary),
     },
     performance: {
       quality: oneOf<GraphicsQuality>(
@@ -1910,3 +1912,15 @@ export type QuestDto = QuestDef & {
 };
 export type QuestsResponse = { quests: QuestDto[]; wikibits: number };
 export type QuestClaimResponse = { wikibits: number; reward: number };
+
+// tirage partagé par un lien public (/tirage/<id>)
+export type PackShareCard = CardDto & { isNew: boolean };
+export type PackShareDto = {
+  id: string;
+  /** pseudo du joueur, seulement si son profil est public */
+  ownerName: string | null;
+  createdAt: string;
+  cards: PackShareCard[];
+};
+export type CreatePackShareResponse = { id: string };
+export const PACK_SHARE_MAX_PER_DAY = 50;

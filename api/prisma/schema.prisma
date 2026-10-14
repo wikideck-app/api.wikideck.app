@@ -59,6 +59,7 @@ model User {
   albums              Album[]
   pushSubscriptions   PushSubscription[]
   importedCards       ImportedCard[]
+  packShares          PackShare[]
   guildWishes         GuildWish[]       @relation("WishOwner")
   guildGifts          GuildWish[]       @relation("WishGiver")
   guildEvents         GuildScoreEvent[]
@@ -708,4 +709,22 @@ model ImportedCard {
 
   @@id([userId, cardId])
   @@index([cardId])
+}
+
+// résultat d'un tirage partagé par un lien public (/tirage/<id>) : copie des cartes, indépendante de la collection
+model PackShare {
+  /// jeton court de l'adresse publique
+  id        String   @id
+  userId    String   @db.Uuid
+  /// identifiants des cartes triés : un même tirage partagé deux fois garde le même lien
+  key       String
+  /// pseudo du joueur, seulement si son profil est public
+  ownerName String?
+  cards     Json
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, key])
+  @@index([userId, createdAt])
 }
