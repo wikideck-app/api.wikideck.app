@@ -21,9 +21,14 @@ export function notifyUser(userId: string | null | undefined, event: LiveEvent) 
   // notification sur les appareils abonnés (téléphone), même quand le site est fermé
   void pushToUser(userId, event).catch(() => {});
   if (!notifyEnabled) return;
-  void fetch(`${URL_BASE}/${topicOf(userId)}`, {
-    method: "POST",
-    body: JSON.stringify(event),
-    signal: AbortSignal.timeout(3000),
-  }).catch(() => {});
+  const send = () =>
+    fetch(`${URL_BASE}/${topicOf(userId)}`, {
+      method: "POST",
+      body: JSON.stringify(event),
+      signal: AbortSignal.timeout(3000),
+    }).then((res) => {
+      if (!res.ok) throw new Error(String(res.status));
+    });
+  // un second essai : un raté ponctuel du serveur de notifications ne doit pas perdre l'évènement
+  void send().catch(() => new Promise((r) => setTimeout(r, 800)).then(send)).catch(() => {});
 }
